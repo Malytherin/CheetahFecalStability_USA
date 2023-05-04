@@ -1,0 +1,798 @@
+---
+title: "S8PT_Analyses_Final.Figures"
+author: "M. Maly"
+date: "2022-08-02"
+output: html_document
+---
+
+S8 Poop Time Final Analyses and Figures for Manuscript
+
+# Load libraries
+```{r, echo=FALSE}
+library(Biostrings)
+library(GGally)
+library(XVector)
+library(IRanges)
+library(S4Vectors)
+library(stats4)
+library(BiocGenerics)
+library(parallel)
+library(ape)
+library(ggplot2)
+library(phyloseq)
+library(car)
+library(lme4)
+library(tidyverse)
+library(RVAideMemoire)
+library(dplyr)
+library(ggpubr)
+library(knitr)
+library(ade4)
+library(nlme)
+library(MuMIn)
+library(emmeans)
+library(ggpubr)
+library(patchwork)
+library(rstatix)
+library(pairwiseAdonis)
+```
+
+Load color schemes
+```{r}
+fave8colors <- c("#ffa600", "#ff7c43", "#f95d6a", "#d45087", "#a05195", "#665191","#2f4b7c","#003f5c")
+fave6colors <- c("#ffa600", "#ff6e54","#dd5182","#955196","#444e86","#003f5c")
+revfave6 <- c("#003f5c","#444e86","#955196","#dd5182","#ff6e54","#ffa600")
+fecalcols <- c("#f5bfbf", "#c093aa", "#e57a77", "#d373bb", "#665191", "#3497d5","#728fdc","#003f5c")
+colorblind8 <- c("#F05039", "#E57A77", "#EEBAB4","black","#1F449C", "#3D65A5", "#7CA1CC", "#A8B6CC")
+col6 <- c("#ffa600", "#3aba4d","#dd5182","#955196","#0f7ed9","#003f5c")
+rev6 <- c("#003f5c","#0f7ed9","#955196","#dd5182","#3aba4d","#ffa600")
+```
+
+Data Loading - make phyloseq object and dataframe
+```{r phyloseq, echo=FALSE}
+# read in feature table
+S8_feature_tab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
+# Make compatible for phyloseq format
+S8_asv_tab = otu_table(S8_feature_tab, taxa_are_rows = TRUE)
+
+# Read in meta data file
+S8_meta_data <- read.csv("Aju_Metadata.csv", header = T, row.names = 2)
+# Change quant_reading column to numeric
+S8_meta_data$quant_reading <- as.numeric(S8_meta_data$quant_reading)
+# Make compatible for phyloseq
+S8mf <- sample_data(S8_meta_data)
+
+# Read in taxonomy file
+S8_taxonomy <- read.csv("Aju_taxonomy.csv", row.names = 1)
+# Taxonomy needs to be a matrix
+S8_taxonomy <- as.matrix(S8_taxonomy)
+# Make compatible for phyloseq
+S8_taxonomy_final = tax_table(S8_taxonomy)
+
+###Write in DNA sequences
+S8_DNAseqs <- readDNAStringSet("Aju_DNAsequences_2runs.fasta")
+
+##read in tree ### 
+S8_tree = read.tree("Aju_tree.nwk")
+
+###Merge it all together:  
+S8 <- merge_phyloseq(S8mf, S8_asv_tab, S8_taxonomy_final,S8_DNAseqs, S8_tree)
+
+# Remove Chloroplast sequences
+S8 <- subset_taxa(S8, Phylum != "Cyanobacteria/Chloroplast")
+
+# make a dataframe from the phyloseq object
+dfS8 <- as(sample_data(S8), "data.frame")
+
+```
+
+General features and info
+```{r}
+sum(sample_sums(S8)) #984,381 Total # sequences
+max(sample_sums(S8)) #42284
+min(sample_sums(S8)) # 8648
+median(sample_sums(S8)) #23356
+mean(sample_sums(S8)) #24009.29
+42284/8648 # 4.89
+get_taxa_unique(S8, taxonomic.rank = "Phylum")
+
+# Get mean relative abundance and number of taxa for each Phyla OVERALL (this is NOT by individual day)
+
+# Bacteroidetes
+100*sum(taxa_sums(subset_taxa(S8, Phylum == "Bacteroidetes")))/sum(taxa_sums(S8))
+# Mean abundance = 5.53 %
+ntaxa(subset_taxa(S8, Phylum == "Bacteroidetes"))
+# Number of ASVs = 34
+
+# Proteobacteria
+100*sum(taxa_sums(subset_taxa(S8, Phylum == "Proteobacteria")))/sum(taxa_sums(S8))
+# Mean abundance = 17.67%
+ntaxa(subset_taxa(S8, Phylum == "Proteobacteria"))
+# Number of ASVs = 58
+
+# Firmicutes
+100*sum(taxa_sums(subset_taxa(S8, Phylum == "Firmicutes")))/sum(taxa_sums(S8))
+# Mean abundance = 67.90%
+ntaxa(subset_taxa(S8, Phylum == "Firmicutes"))
+# Number of ASVs = 155
+
+# Fusobacteria
+100*sum(taxa_sums(subset_taxa(S8, Phylum == "Fusobacteria")))/sum(taxa_sums(S8))
+# Mean abundance = 6.37%
+ntaxa(subset_taxa(S8, Phylum == "Fusobacteria"))
+# Number of ASVs = 9
+
+# Actinobacteria
+100*sum(taxa_sums(subset_taxa(S8, Phylum == "Actinobacteria")))/sum(taxa_sums(S8))
+# Number of ASVs = 2.5%
+ntaxa(subset_taxa(S8, Phylum == "Actinobacteria"))
+# Number of ASVs = 11
+```
+
+Relative Abundance in S8 Day 0
+```{r}
+# Get mean relative abundance and number of taxa for each Phyla OVERALL in FRESH ONLY samples
+
+# filter out other days and ASVs found only in those days
+S8Day0 <- subset_samples(S8, SampleDay == "Day 0")
+S8Day0
+S8Day0filtered <- filter_taxa(S8Day0, function(x) {sum(x > 0) > 1}, prune = TRUE)
+S8Day0filtered
+get_taxa_unique(S8Day0, taxonomic.rank = "Phylum")
+get_taxa_unique(S8Day0filtered, taxonomic.rank = "Phylum")
+
+# Bacteroidetes
+100*sum(taxa_sums(subset_taxa(S8Day0filtered, Phylum == "Bacteroidetes")))/sum(taxa_sums(S8Day0filtered))
+# Mean abundance = 18.06 %
+ntaxa(subset_taxa(S8Day0filtered, Phylum == "Bacteroidetes"))
+# Number of ASVs = 14
+
+# Proteobacteria
+100*sum(taxa_sums(subset_taxa(S8Day0filtered, Phylum == "Proteobacteria")))/sum(taxa_sums(S8Day0filtered))
+# Mean abundance = 2.5%
+ntaxa(subset_taxa(S8Day0filtered, Phylum == "Proteobacteria"))
+# Number of ASVs = 7
+
+# Firmicutes
+100*sum(taxa_sums(subset_taxa(S8Day0filtered, Phylum == "Firmicutes")))/sum(taxa_sums(S8Day0filtered))
+# Mean abundance = 63.02%
+ntaxa(subset_taxa(S8Day0filtered, Phylum == "Firmicutes"))
+# Number of ASVs = 83
+
+# Fusobacteria
+100*sum(taxa_sums(subset_taxa(S8Day0filtered, Phylum == "Fusobacteria")))/sum(taxa_sums(S8Day0filtered))
+# Mean abundance = 12.95%
+ntaxa(subset_taxa(S8Day0filtered, Phylum == "Fusobacteria"))
+# Number of ASVs = 8
+
+# Actinobacteria
+100*sum(taxa_sums(subset_taxa(S8Day0filtered, Phylum == "Actinobacteria")))/sum(taxa_sums(S8Day0filtered))
+# Number of ASVs = 3.47%
+ntaxa(subset_taxa(S8Day0filtered, Phylum == "Actinobacteria"))
+# Number of ASVs = 6
+
+```
+
+Figure S1 - Relative Abundance Across Days by Phyla
+```{r}
+# Get unique taxa
+get_taxa_unique(S8, "Phylum")
+# Create phyloseq object for visualization
+S8_p1 <- tax_glom(S8, taxrank = 'Phylum')
+S8_p2= merge_samples(S8_p1, "SampleDay")
+S8_p2 <- transform_sample_counts(S8_p2, function(x) x/sum(x))
+S8_p3 <- psmelt(S8_p2)
+S8_p3$Phylum <- as.character(S8_p3$Phylum)
+
+S8_p3$Phylum[S8_p3$Abundance < 0.01] <- "Phyla < 1% abund."
+
+plot.rel.ab.s8p <- ggplot(data=S8_p3, aes(x=Sample, y=Abundance, fill=Phylum))
+
+plot.rel.ab.s8p + 
+  geom_bar(aes(), stat="identity", position="stack", width = 0.85)  +
+  ylab("Relative abundance (% of total sequences)") +
+  theme_classic() +
+  labs(x ="")+ theme(text = element_text(size = 12),
+                     axis.text.y.left = element_text(size = 10)) + 
+  scale_fill_manual(values=revfave6,name="Phylum") 
+```
+
+
+Figure 1 - Box plots of significantly differential abundant Phyla
+```{r}
+# Import otu_table that is the subset of all ASVs that were significant differentially abundant between Day 0 and all other Days
+S8_phylum <- tax_glom(S8, taxrank = 'Phylum')
+OTU_S8.Pglom <- otu_table(S8_phylum)
+
+S8_P_tukeyASVs <- c("ASV4", "ASV1", "ASV2", "ASV17") # From DA test results
+sigP <- S8_P_tukeyASVs
+sigP
+
+# Prep data ---------------------------------------------------------
+# Bring in taxonomy: Need an OTU ID in the taxonomy table to match to
+tax_table(S8_phylum) <- cbind(tax_table(S8_phylum), ASV=taxa_names(S8_phylum))
+                       
+# Need to convert count data to abundance data
+s8.P.RA <- transform_sample_counts(S8_phylum, function(x) x / sum(x))
+tax_table(s8.P.RA) <- cbind(tax_table(s8.P.RA), ASV=taxa_names(s8.P.RA))
+# Remove phyla that were NOT significantly different across days
+select_sigPhyla <- subset_taxa(s8.P.RA, Phylum != "Candidatus_Saccharibacteria")
+select_sigPhyla <- subset_taxa(select_sigPhyla, Phylum != "Actinobacteria")
+
+View(select_sigPhyla)
+View(tax_table(select_sigPhyla))
+
+# Set Sample Day and Fecal.ID as factors
+sample_data(select_sigPhyla)$SampleDay <- factor(sample_data(select_sigPhyla)$SampleDay, levels = c("Day 0", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5"))
+sample_data(select_sigPhyla)$Fecal.ID <- factor(sample_data(select_sigPhyla)$FecalSeries, levels = c("Aju 1", "Aju 2", "Aju 3", "Aju 4", "Aju 5", "Aju 6", "Aju 7", "Aju 8"))
+levels(sample_data(select_sigPhyla)$SampleDay)
+levels(sample_data(select_sigPhyla)$Fecal.ID)
+
+# Create box plot
+# https://github.com/joey711/phyloseq/issues/1501
+S8_DA_phylum <- 
+  phyloseq::psmelt(select_sigPhyla) %>%
+  ggplot(data = ., aes(x=SampleDay, y=Abundance, fill = Phylum)) +
+  geom_boxplot(outlier.shape = 19) + 
+  geom_jitter(width = .2) +
+  labs(x="", y = "Relative Abundance") +
+  stat_summary(fun = "mean", geom = "point", shape = 23) +
+  theme_classic() +
+  scale_fill_manual(values = c("#003f5c", "#7a5195", "#ef5675", "#ffa600")) +
+  facet_wrap(~Phylum, scales = "free")
+
+S8_DA_phylum
+# Asterisks indicating significance were added manually to the PDF
+```
+
+Figure 2 - Heat map of differentially abundant ASVS
+```{r}
+# Import otu_table that is the subset of all ASVs that were significant differentially abundant between Day 0 and all other Days
+S8_DA_ASVs <- read.csv("S8_DA_ASVtable_Apr2022.csv", header = TRUE) # This is count based from DAtest code
+sigASVs <- S8.DA_ASVs[,8]
+sigASVs
+
+# Prep data ---------------------------------------------------------
+# Bring in taxonomy: Need an OTU ID in the taxonomy table to match to
+tax_table(S8) <- cbind(tax_table(S8), ASV=taxa_names(S8))
+                       
+# Need to convert count data to abundance data
+s8RA <- transform_sample_counts(S8, function(x) x / sum(x))
+tax_table(s8RA) <- cbind(tax_table(s8RA), ASV=taxa_names(s8RA))
+View(tax_table(s8RA))
+# Need to subset to only sigASVs
+select_sigASVs <- subset_taxa(s8RA, ASV %in% sigASVs)
+
+# Set as factors
+select_sigASVs@sam_data$Fecal.ID <- c("Aju 1", "Aju 1", "Aju 1","Aju 1","Aju 1","Aju 1", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 7", "Aju 7", "Aju 7", "Aju 7", "Aju 8", "Aju 8", "Aju 8")
+select_sigASVs@sam_data$Fecal_Series <- select_sigASVs@sam_data$Fecal.ID
+sample_data(select_sigASVs)$SampleDay <- factor(sample_data(select_sigASVs)$SampleDay, levels = c("Day 0", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5"))
+
+# Group by Sample Day 
+ph.Fid <- plot_heatmap(select_sigASVs, distance = "euclidean", sample.label = "Fecal_Series", taxa.label = "ASV", taxa.order = "Genus", high = "red", low = "yellow", na.value = "darkgrey", sample.order = "Fecal.ID") + theme(text = element_text(family = "Times New Roman"))
+# Facet Wrap by SampleDay
+s8htmp_ASV <- ph.Fid + facet_grid(~SampleDay, scales = "free_x") 
+
+s8htmp_ASV
+```
+
+Species Richness (SR) ANOVA and plots
+```{r}
+# Test for normality
+shapiro.test(dfS8$SR)
+leveneTest(SR ~ SampleDay, dfS8)
+leveneTest(SR ~ FecalSeries, dfS8) 
+
+# SR ANOVA MODEL
+SRs8_aov <- aov(SR ~ FecalSeries + SampleDay, data = dfS8)
+summary(SRs8_aov)
+
+# SR Posthoc testing for Fecal ID
+S8_SRaov_emm <- emmeans(SRs8_aov, ~ FecalSeries)
+pairs(S8_SRaov_emm, adjust = "tukey")
+plot(S8_SRaov_emm, comparisons = TRUE, adjust = "tukey") + xlab("SR emmean") + ylab("Fecal ID") + theme_classic()
+
+# SR Boxplot 
+
+# SR by SampleDay
+# Create dataframe with averages for each group
+dfSR_day_mean <- dfS8 %>%
+  group_by(SampleDay) %>%
+  summarize(average = mean(SR)) %>%
+  ungroup()
+
+# Make plot
+s8sr_day <- dfS8 %>% 
+  ggplot(mapping = aes(x = SampleDay, y = SR, fill = SampleDay)) +
+  geom_boxplot() +
+  geom_point(data = dfSR_day_mean,
+             mapping = aes(x = SampleDay, y = average),
+             color = "black",
+             shape = 5) +
+  geom_line(data = dfSR_day_mean,
+            mapping = aes(x = SampleDay, y = average, group=1),
+            color = "black") +
+  geom_jitter(width = 0.1) + 
+  ylab("Species Richness") +
+  xlab("Sample Day") +
+  scale_fill_manual(values = col6) +
+  theme_classic() +
+  theme(legend.position = "none") + 
+  labs(tag = "A") + 
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+
+# SR by Fecal Series
+# Create dataframe with averages for each group
+dfSR_series_mean <- dfS8 %>%
+  group_by(FecalSeries) %>%
+  summarize(average = mean(SR)) %>%
+  ungroup()
+
+# Make plot
+s8sr_series <- dfS8 %>% 
+  ggplot(mapping = aes(x = FecalSeries, y = SR, fill = FecalSeries)) +
+  geom_boxplot() +
+  geom_point(data = dfSR_series_mean,
+             mapping = aes(x = FecalSeries, y = average),
+             color = "black",
+             shape = 5) +
+  geom_jitter(width = 0.1) + 
+  ylab("Species Richness") +
+  xlab("Fecal ID") +
+  scale_fill_manual(values = fecalcols) +
+  theme_classic() +
+  theme(legend.position = "none") + 
+  labs(tag = "B") + 
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+
+```
+
+Faith's Phylogenetic Diversity (PD) ANOVA and Plots
+```{r}
+# Normality testing
+shapiro.test(dfS8$PD)
+leveneTest(PD ~ SampleDay, data = dfS8)
+leveneTest(PD ~ FecalSeries, data = dfS8) 
+
+# PD ANOVA Model
+PDs8_aov <- aov(PD ~ FecalSeries + SampleDay, data = dfS8)
+summary(PDs8_aov)
+
+# PD Posthoc testing for Fecal ID
+S8_PDaov_emm <- emmeans(PDs8_aov, ~ FecalSeries)
+pairs(S8_PDaov_emm, adjust = "tukey")
+plot(S8_PDaov_emm, comparisons = TRUE, adjust = "tukey") + xlab("PD emmean") + ylab("Fecal ID") + theme_classic()
+
+# Plots
+
+# PD by SampleDay
+# Create dataframe with averages for each group
+dfPD_day_mean <- dfS8 %>%
+  group_by(SampleDay) %>%
+  summarize(average = mean(PD)) %>%
+  ungroup()
+
+# Make plot
+s8pd_day <- dfS8 %>% 
+  ggplot(mapping = aes(x = SampleDay, y = PD, fill = SampleDay)) +
+  geom_boxplot() +
+  geom_point(data = dfPD_day_mean,
+             mapping = aes(x = SampleDay, y = average),
+             color = "black",
+             shape = 5) +
+  geom_line(data = dfPD_day_mean,
+            mapping = aes(x = SampleDay, y = average, group=1),
+            color = "black") +
+  geom_jitter(width = 0.1) + 
+  ylab("Faith's PD") +
+  xlab(" Sample Day") +
+  scale_fill_manual(values = col6) +
+  theme_classic() +
+  theme(legend.position = "none") + 
+  labs(tag = "C") + 
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+
+# PD by Fecal Series
+# Create dataframe with averages for each group
+dfPD_series_mean <- dfS8 %>%
+  group_by(FecalSeries) %>%
+  summarize(average = mean(PD)) %>%
+  ungroup()
+
+#Make plot
+s8pd_series <- dfS8 %>% 
+  ggplot(mapping = aes(x = FecalSeries, y = PD, fill = FecalSeries)) +
+  geom_boxplot() +
+  geom_point(data = dfPD_series_mean,
+             mapping = aes(x = FecalSeries, y = average),
+             color = "black",
+             shape = 5) +
+  geom_jitter(width = 0.1) + 
+  ylab("Faith's PD") +
+  xlab("Fecal ID") +
+  scale_fill_manual(values = fecalcols) +
+  theme_classic() + 
+  theme(legend.position = "none") + 
+  labs(tag = "D") + 
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+
+```
+
+Alpha Boxplots - Supplemental Figure 2
+```{r}
+s8sr_day + s8sr_series + s8pd_day + s8pd_series + plot_layout(nrow = 2)
+```
+
+## Beta Diversity
+
+PERMANOVAs (including pairwise)
+```{r}
+# Bray Curtis PERMANOVA
+bray_S8 <- phyloseq::distance(S8, "bray")
+bray_adonis <- adonis2(bray_S8 ~ SampleDay + FecalSeries, data = dfS8)
+bray_adonis
+# Bray Curtis pairwise.adonis
+bray_pair <- pairwise.adonis2(bray_S8 ~ SampleDay + FecalSeries, data = dfS8)
+head(bray_pair)
+
+# Jaccard PERMANOVA
+jacc_S8 <- phyloseq::distance(S8, "jaccard", binary = TRUE)
+jacc_adonis <- adonis2(jacc_S8 ~ SampleDay + FecalSeries, data = dfS8)
+jacc_adonis
+# Jaccard pairwise.adonis
+jacc_pair <- pairwise.adonis2(jacc_S8 ~ SampleDay + FecalSeries, data = dfS8)
+head(jacc_pair)
+
+# Unweighted UniFrac
+unweigh_S8 <- phyloseq::distance(S8, "unifrac")
+unw_adonis <- adonis2(unweigh_S8 ~ SampleDay + FecalSeries, data = dfS8)
+unw_adonis
+# Unweighted UniFrac pairwise.adonis
+unw_pair <- pairwise.adonis2(unweigh_S8 ~ SampleDay + FecalSeries, data = dfS8)
+head(unw_pair)
+
+# Pairwise PERMANOVA p-values and adjustments
+BC_day_pvals <- c(0.010, 0.001, 0.001,0.001, 0.001)
+BC_series_pvals <- c(0.001, 0.005, 0.026, 0.021, 0.016)
+
+JC_day_pvals <- c(0.012, 0.001, 0.001, 0.001, 0.001)
+JC_series_pvals <- c(0.001, 0.002, 0.115, 0.055, 0.018)
+
+UU_day_pvals <- c(0.127, 0.002, 0.005, 0.001, 0.001)
+UU_series_pvals <- c(0.001, 0.009, 0.334, 0.159, 0.179)
+
+# Bonferroni adjustment
+# Bray Curtis
+BC_day_adj <- p.adjust(BC_day_pvals, method = "bonferroni")
+BC_series_adj <- p.adjust(BC_series_pvals, method = "bonferroni")
+# Jaccard
+JC_day_adj <- p.adjust(JC_day_pvals, method = "bonferroni")
+JC_series_adj <- p.adjust(JC_series_pvals, method = "bonferroni")
+# Unweighted UniFrac
+UU_day_adj <- p.adjust(UU_day_pvals, method = "bonferroni")
+UU_series_adj <- p.adjust(UU_series_pvals, method = "bonferroni")
+
+# Table of bonferroni adjusted pvals for pairwise permanova
+dfBCpadj <- data.frame(BC_day_adj, BC_series_adj)
+row.names(dfBCpadj) <- c("Day 0 v Day 1", "Day 0 v Day 2", "Day 0 v Day 3", "Day 0 v Day 4", "Day 0 v Day 5")
+dfBCpadj
+
+dfJCpadj <- data.frame(JC_day_adj, JC_series_adj)
+row.names(dfJCpadj) <- c("Day 0 v Day 1", "Day 0 v Day 2", "Day 0 v Day 3", "Day 0 v Day 4", "Day 0 v Day 5")
+dfJCpadj
+
+dfUUpadj <- data.frame(UU_day_adj, UU_series_adj)
+row.names(dfUUpadj) <- c("Day 0 v Day 1", "Day 0 v Day 2", "Day 0 v Day 3", "Day 0 v Day 4", "Day 0 v Day 5")
+dfUUpadj
+
+Allbetapadj <- data.frame(dfBCpadj, dfJCpadj, dfUUpadj)
+Allbetapadj
+```
+
+## PermDISP
+```{r}
+# Set groups to SampleDay
+dfS8$SampleDay <- as.factor(dfS8$SampleDay)
+groups <- dfS8[["SampleDay"]]
+class(groups)
+levels(groups)
+
+# Run betadisper()
+S8_BCdisp <- betadisper(bray_S8, groups, type = "centroid")
+S8_JCdisp <- betadisper(jacc_S8, groups, type = "centroid")
+S8_UUdisp <- betadisper(unweigh_S8, groups, type = "centroid")
+
+# ANOVA of betadisper
+
+# Bray Curtis
+anova(S8_BCdisp)
+permutest(S8_BCdisp, pairwise = TRUE, permutations = 999)
+
+# Jaccard
+anova(S8_JCdisp)
+permutest(S8_JCdisp, pairwise = TRUE, permutations = 999)
+
+# Unweighted UniFrac
+anova(S8_UUdisp)
+permutest(S8_UUdisp, pairwise = TRUE, permutations = 999)
+
+# Make data frames of distances to centroid for each measure, include labels for significant variation from Day 0
+# Bray Curtis (Days 1 and 2 different dispersion from Day 0)
+B2df <- data.frame(name=names(S8_BCdisp$distances), 
+                   SampleDay=S8_BCdisp$group, 
+                   distance=as.vector(S8_BCdisp$distances))
+# Labels based on pairwise permuted p-values
+B2df$label <- c(NA, "*","**", rep(NA,38)) 
+# Denote where to place labels on plot
+B2df$yloc <- max(B2df$distance) + 0.05
+
+# Jaccard (Days 1 - 4 different dispersion from Day 0)
+J2df <- data.frame(name=names(S8_JCdisp$distances), 
+                   SampleDay=S8_JCdisp$group, 
+                   distance=as.vector(S8_JCdisp$distances))
+# Labels based on pairwise permuted p-values
+J2df$label <- c(NA, "*","**","**","*", rep(NA,36))
+# Denote where to place labels on plot
+J2df$yloc <- max(J2df$distance) + 0.05
+
+# Unweighted UniFrac (ALL days different dispersion from Day 0)
+U2df <- data.frame(name=names(S8_UUdisp$distances), 
+                   SampleDay=S8_UUdisp$group, 
+                   distance=as.vector(S8_UUdisp$distances))
+# Labels based on pairwise permuted p-values
+U2df$label <- c(NA, "*","***", "***", "**","*", rep(NA,35))
+# Denote where to place labels on plot
+U2df$yloc <- max(U2df$distance) + 0.05
+```
+
+# Beta PCoAs and PermDisp Boxplots
+```{r}
+# PCoAs
+
+# Sample Day ellipses (0.8)
+# Bray Curtis
+bray_S8.ord <- ordinate(S8, method = "PCoA", bray_S8)
+S8_bray <- plot_ordination(S8, bray_S8.ord, color = "SampleDay")
+S8Bray2 <- S8_bray + 
+  geom_point(size=5) + 
+  theme_bw() + 
+  theme_classic() + 
+  theme(text = element_text(size=15)) + 
+  stat_ellipse(aes(group=SampleDay), level = 0.8) + 
+  scale_color_manual(values = col6) + 
+  labs(tag = "A") +
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+
+# Fecal ID ellipses (0.8)
+# Bray Curtis
+bray_S8.ord <- ordinate(S8, method = "PCoA", bray_S8)
+S8_bray_ID <- plot_ordination(S8, bray_S8.ord, color = "FecalSeries")
+S8Bray3 <- S8_bray_ID + 
+  geom_point(size=5) + 
+  theme_bw() + 
+  theme_classic() + 
+  theme(text = element_text(size=15)) + 
+  stat_ellipse(aes(group=FecalSeries), level = 0.8) + 
+  scale_color_manual(values = fecalcols) + 
+  labs(tag = "B", color = 'Fecal ID') +
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+
+
+# Jaccard
+jacc_S8.ord <- ordinate(S8, method = "PCoA", jacc_S8)
+S8_jacc <- plot_ordination(S8, jacc_S8.ord, color = "SampleDay")
+S8Jacc2 <- S8_jacc + 
+  geom_point(size=5) + 
+  theme_classic() + 
+  theme(text = element_text(size=15)) + 
+  stat_ellipse(aes(group=SampleDay), level = 0.8) + 
+  scale_color_manual(values = col6) + 
+  theme(legend.position = "none") +
+  labs(tag = "B") +
+  theme(plot.tag = element_text(size = 25))
+
+# Unweighted UniFrac
+unw_S8.ord <- ordinate(S8, method = "PCoA", unweigh_S8)
+S8_unw <- plot_ordination(S8, unw_S8.ord, color = "SampleDay")
+S8Unw2 <- S8_unw + 
+  geom_point(size=5) + 
+  theme_classic(base_size = 10) + 
+  theme(text = element_text(size=15)) + 
+  stat_ellipse(aes(group=SampleDay), level = 0.8) + 
+  scale_color_manual(values = col6) +
+  labs(tag = "C") +
+  theme(plot.tag = element_text(size = 25))
+
+### Distance to Centroid Boxplots
+# Bray Curtis
+BCbxp <- ggplot(B2df, aes(SampleDay, distance, fill = SampleDay)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c(col6)) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  ylab("Distance to Centroid") +
+  xlab("Sample Day") +
+  geom_text(data = B2df, aes(y = yloc, label = label),
+            position = position_dodge(width = 0.75), size = 11) +
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1)) +
+  ylim(0,0.8) +
+  geom_jitter(width = 0.1) +
+  labs(tag = "A") + 
+  theme(text = element_text(size = 15),
+        axis.title.x = element_blank()) +
+  theme(plot.tag = element_text(size = 25))
+
+# Jaccard
+JCbxp <- ggplot(J2df, aes(SampleDay, distance, fill = SampleDay)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c(col6)) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  ylab("Distance to Centroid") +
+  geom_text(data = J2df, aes(y = yloc, label = label),
+            position = position_dodge(width = 0.75), size = 11) +
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1)) +
+  ylim(0,0.8) +
+  geom_jitter(width = 0.1) +
+  labs(tag = "B") + 
+  theme(text = element_text(size = 15),
+        axis.title.x = element_blank()) +
+  theme(plot.tag = element_text(size = 25))
+
+# Unweighted UniFrac
+UUbxp <- ggplot(U2df, aes(SampleDay, distance, fill = SampleDay)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c(col6)) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  ylab("Distance to Centroid") +
+  xlab("Sample Day") +
+  geom_text(data = U2df, aes(y = yloc, label = label),
+            position = position_dodge(width = 0.75), size = 11) +
+  theme(plot.title = element_text(hjust = 0.5, vjust = 1)) +
+  ylim(0,0.8) +
+  geom_jitter(width = 0.1) +
+  labs(tag = "C") + 
+  theme(text = element_text(size = 15)) +
+  theme(plot.tag = element_text(size = 25))
+```
+
+Figure 3 - Bray Curtis PCoA for Sample Day and Fecal ID
+```{r}
+S8Bray2 + S8Bray3 + plot_layout(nrow = 1)
+```
+
+Figure S3 - Distance to centroids for all three beta measures
+```{r}
+BCbxp + JCbxp + UUbxp + plot_layout(nrow = 3)
+```
+
+Figure 4 - Microbiota network analysis
+```{r}
+# For complete reproduciblity of the images produced, set the random number generator seed explicitly:
+set.seed(711L)
+
+# create an igraph-based network based on the default distance method (Jaccard) and a max distance between connected nodes of 0.7
+igB <- make_network(S8, dist.fun = "bray", max.dist = 0.7)
+
+# Make network plot
+plot_network(igB, S8, color = "SampleDay", line_weight = 0.5, label = "FecalSeries", shape = "FecalSeries") + 
+  scale_color_manual(values =  col6) + 
+  scale_shape_manual(values = c(15,16,17,18,0,1,24,25)) + 
+  theme(text = element_text(size = 15)) +
+  labs(shape = "Fecal ID", color = "Sample Day")
+
+```
+
+## Weather Factors
+
+Load dataframes
+```{r}
+# Import data frame
+dfS8BC_D0123 <- read.csv(file = "Aju_3DayComparisons_Bray_BetaDistances.csv", header = TRUE)
+
+dfS8JC_D0123 <- read.csv(file = "Aju_3DayComparisons_Jacc_BetaDistances.csv", header = TRUE)
+
+dfS8UW_D0123 <- read.csv(file = "Aju_3DayComparisons_Unweigh_BetaDistances.csv", header = TRUE)
+
+# Create Max.Daily.Rainfall variable for UW (can use from BC or UW, it is the same)
+Max.Daily.Rainfall <- dfS8JC_D0123$Max.Daily.Rainfall
+dfS8UW_D0123$Max.Daily.Rainfall <- Max.Daily.Rainfall
+```
+
+BC Summary Stats
+```{r}
+# Rain
+dfS8BC_D0123 %>%
+  group_by(Comparisons, Rain.Group) %>%
+  get_summary_stats(BC_Distance, type = "mean_sd")
+
+```
+
+JC Summary Stats
+```{r}
+# Rain
+dfS8JC_D0123 %>%
+  group_by(Comparisons, Rain.Group) %>%
+  get_summary_stats(Jacc_Distance, type = "mean_sd")
+
+```
+
+UW Summary Stats
+```{r}
+# Rain
+dfS8UW_D0123 %>%
+  group_by(Comparisons, Rain.Group) %>%
+  get_summary_stats(Unweigh_Distance, type = "mean_sd")
+
+```
+
+Rainfall (High vs Low) ANOVA by all three Beta distance measures
+```{r}
+# Bray Curtis
+BCrainaov <- aov(BC_Distance ~ Rain.Group * Comparisons, data = dfS8BC_D0123)
+summary(BCrainaov)
+
+# Jaccard
+JCrainaov <- aov(Jacc_Distance ~ Rain.Group * Comparisons, data = dfS8JC_D0123)
+summary(JCrainaov)
+
+# Unweighted UniFrac
+UUrainaov <- aov(Unweigh_Distance ~ Rain.Group * Comparisons, data = dfS8UW_D0123)
+summary(UUrainaov)
+
+```
+
+# BC Rain Boxplots
+```{r}
+rainBoxBC <- ggplot(dfS8BC_D0123, aes(x=Comparisons, y=BC_Distance, fill = Rain.Group)) + geom_boxplot()
+
+rainBoxBC <- rainBoxBC + 
+  geom_dotplot(binaxis = "y", stackdir = "center", 
+                         position = position_dodge(1), dotsize = 0.65, binwidth = 0.035) + 
+  scale_fill_manual(values = c("#006a9a","#ffa600")) + 
+  theme_classic() + 
+  labs(y = "Pairwise Bray-Curtis Distance", x = "Days in Comparison") + 
+  theme(legend.position = "right") + 
+  theme(text = element_text(size = 15)) +
+  scale_y_continuous(limits=c(0,1), breaks = seq(0,1,.2)) 
+
+```
+
+JC Rain Boxplots
+```{r}
+rainBoxJC <- ggplot(dfS8JC_D0123, aes(x=Comparisons, y=Jacc_Distance, fill = Rain.Group)) + geom_boxplot()
+
+rainBoxJC <- rainBoxBC + geom_dotplot(binaxis = "y", stackdir = "center", 
+                         position = position_dodge(1), dotsize = 0.65, binwidth = 0.035) + 
+  scale_fill_manual(values = c("#006a9a","#ffa600")) + theme_classic() + labs(y = "Pairwise Jaccard Distance", x = "Days in Comparison") + theme(legend.position = "right") + scale_y_continuous(limits=c(0,1), breaks = seq(0,1,.2)) 
+
+```
+
+Unweigh Rain and UV Boxplots
+```{r}
+rainBoxUU <- ggplot(dfS8UW_D0123, aes(x=Comparisons, y=Unweigh_Distance, fill = Rain.Group)) + geom_boxplot()
+
+rainBoxUU <- rainBoxUU + geom_dotplot(binaxis = "y", stackdir = "center", 
+                         position = position_dodge(1), dotsize = 0.65, binwidth = 0.035) + 
+  scale_fill_manual(values = c("#006a9a","#ffa600")) + theme_classic() + labs(y = "Pairwise Unweighted UniFrac Distance", x = "Days in Comparison") + theme(legend.position = "right") + scale_y_continuous(limits=c(0,1), breaks = seq(0,1,.2)) 
+
+```
+
+All rain boxplots
+```{r}
+rainBoxBC + rainBoxJC + rainBoxUU + plot_layout(nrow = 3)
+```
+
+Figure 5 Boxplot - Bray Curtis pairwise distances by rain groups
+```{r}
+rainBoxBC
+```
+
+

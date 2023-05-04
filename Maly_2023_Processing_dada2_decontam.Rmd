@@ -1,0 +1,454 @@
+---
+title: "Maly_2023_Preprocessing_dada2_decontam"
+author: "M. Maly"
+date: "2023-04-30"
+output: html_document
+---
+This is code for preprocessing demultiplexed 16S Illumina reads from the samples from "Comparing Stability of Fecal Microbiota by Time and Weather Conditions in a Carnivore, the Cheetah (Acinonyx jubatus)"
+
+1) DADA2 pipeline:
+Data merging, clean up, creating feature table, taxonomy table and sequence file for later analyses
+
+2) Decontam pipeline: remove decontaminant sequences
+
+3) Calculate alpha diversity metrics
+
+4) Build tree in QIIME2
+
+```{r}
+library(Biostrings)
+library(dada2)
+library(decontam)
+library(phyloseq)
+library(picante)
+library(seqRFLP)
+```
+
+We have two separate Illumina runs for this study, all samples were sequenced on both runs.
+
+**Take both runs through individually.** 
+Take one one all the way through to saveRDS, then do the next run.
+Save each as .rds files (with different names) 
+
+First run data (Aug2019) is here:
+```{r}
+getwd()
+setwd("/Users/admin/Documents/Cheetah_Gut_PoopTime_2runs/PTAug2019")
+path <- "/Users/admin/Documents/Cheetah_Gut_PoopTime_2runs/PTAug2019"
+
+list.files(path)
+```
+
+Second run data (Sep2019) is here:
+```{r}
+setwd("/Users/admin/Documents/Cheetah_Gut_PoopTime_2runs/PTSep2019")
+path <- "/Users/admin/Documents/Cheetah_Gut_PoopTime_2runs/PTSep2019"
+
+list.files(path)
+```
+
+## Filter and Trim
+
+```{r}
+fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
+```
+
+Extract sample names - assuming filenames have format: SAMPLENAME_XXX.fastq
+```{r}
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+```
+
+INSPECTION OF QUALITY PROFILES
+
+Forward Reads:
+```{r}
+plotQualityProfile(fnFs[1:2])
+```
+
+Reverse Reads:
+```{r}
+plotQualityProfile(fnRs[1:4])
+```
+
+###Filter and Trimming
+```{r}
+filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+```
+
+
+OUT1 parameters: **use for Sep2019 run** 
+```{r}
+out1 <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(270,200),
+                     maxN=0, maxEE=c(2,2), trimLeft = 19, trimRight = 23, 
+                     truncQ=2, rm.phix=TRUE,
+                     compress=TRUE, multithread=TRUE) 
+```
+
+OUT3 parameters: **use for Aug2019 run**
+```{r}
+out3 <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,210),
+                      maxN=0, maxEE=c(2,2), trimLeft = 19, trimRight = 23,
+                      truncQ=2, rm.phix=TRUE,
+                      compress=TRUE, multithread=TRUE)
+
+```
+
+Learn errors:
+```{r}
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+```
+
+Plot Errors:
+```{r}
+plotErrors(errF, nominalQ=TRUE)
+```
+
+Dereplicate amplicon sequences from Fastq files:
+```{r}
+derepFs <- derepFastq(filtFs, verbose=TRUE)
+derepRs <- derepFastq(filtRs, verbose=TRUE)
+```
+
+Name the derep-class objects by the sample names:
+```{r}
+names(derepFs) <- sample.names
+names(derepRs) <- sample.names
+```
+
+Sample Inference:
+```{r}
+dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
+```
+```{r}
+dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
+```
+```{r}
+dadaFs[[1]]
+```
+
+Merge each denoised pair of F and R reads:
+```{r}
+mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE)
+```
+
+Make a sequence table - construct a sample-by-sequence observation matrix:
+```{r}
+seqtab <- makeSequenceTable(mergers)
+```
+
+**Run 1 (Aug 2019) used out 3 parameters**
+```{r}
+saveRDS(seqtab, "seqtab_run1.rds")
+```
+
+**Run 2 used out 1 parameters**
+```{r}
+saveRDS(seqtab, "seqtab_run2.rds")
+```
+
+### Merge multiple runs
+```{r}
+st1 <- readRDS("seqtab_run1.rds") # Aug 2019
+st2 <- readRDS("seqtab_run2.rds") # Sep 2019
+```
+You get an error message "Duplicated sample names detected in rownames", but this is ok, dada2 is just letting you know this.
+
+```{r}
+st.all <- mergeSequenceTables(st1, st2, repeats = "sum")
+dim(st.all)
+```
+
+Distribution of amplicon sizes in bp
+```{r}
+table(nchar(getSequences(st.all)))
+```
+
+Remove chimeras
+```{r}
+seqtab.nochim <- removeBimeraDenovo(st.all, method="consensus", multithread=TRUE, verbose=TRUE)
+
+dim(seqtab.nochim)
+```
+
+Get proportion of sequeces left.
+```{r}
+sum(seqtab.nochim)/sum(st.all)
+```
+
+###Assign taxonomy
+```{r}
+taxa <- assignTaxonomy(seqtab.nochim, "rdp_train_set_16.fa", multithread=TRUE)
+taxa <- addSpecies(taxa, "rdp_species_assignment_16.fa")
+```
+
+Inspect the taxanomic assignment
+*removing sequence rownames for display only*
+```{r}
+taxa.print <- taxa 
+rownames(taxa.print) <- NULL
+head(taxa.print)
+```
+
+##Phyloseq
+
+Combine feature table and taxonomy table in same order
+```{r}
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               tax_table(taxa))
+ps
+
+ps1 <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               tax_table(taxa))
+ps1
+```
+
+Rename ASVs to numbers
+Define new names ASV1, ASV2, ...
+```{r}
+new.names <- paste0("ASV", seq(ntaxa(ps)))
+```
+
+Store sequences
+```{r}
+seqs <- taxa_names(ps)
+```
+
+Make map from ASV1 to full sequence
+```{r}
+names(seqs) <- new.names
+```
+
+Rename to human-friendly format
+```{r}
+taxa_names(ps) <- new.names
+```
+
+Convert feature table to matrix
+```{r}
+site_species <-as(otu_table(ps), "matrix")
+```
+
+Need to change this (names?) to match mapping file later
+```{r}
+rownames(site_species)
+```
+
+Transpose to make a species by site matrix
+```{r}
+species_site <- t(site_species)
+```
+
+Taxon table
+```{r}
+tax <- as(tax_table(ps), "matrix")
+seqs
+```
+
+###Write out files: feature table, taxonomy, and DNA sequences
+```{r}
+write.csv(species_site, "PoopTime_feature_table_2runs.csv")
+
+write.csv(tax, "PoopTime_taxonomy_2runs.csv")
+write.csv(seqs, 'PoopTime_feature_DNAsequences_2runs.csv')
+```
+
+Convert DNA sequences file to a Fasta file
+```{r}
+seq_data <- read.csv("PoopTime_feature_DNAsequences_2runs.csv", header = T)
+seq_data <- dataframe2fas(seq_data, file = "Aju_DNAsequences_2runs.fasta")
+```
+
+Make compatible for phyloseq format
+```{r}
+featureTab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
+
+featureTab = otu_table(featureTab, taxa_are_rows = TRUE)
+```
+
+Read taxonomy info in 
+```{r}
+taxonomy <- read.csv("Aju_taxonomy.csv", row.names = 1)
+taxonomy <- tax_table(as.matrix(taxonomy))
+```
+
+Specify the row names to whichever column is your sampleIDs
+```{r}
+meta_data <- read.csv("Aju_meta_noAlpha.csv", header = T, row.names = 1)
+meta_data <- sample_data(meta_data)
+```
+
+Read in sequences of ASVs
+```{r}
+seqs <- readDNAStringSet("Aju_DNAsequences_2runs.fasta")
+```
+
+Merge it all together
+```{r}
+psAju <- merge_phyloseq(featureTab, taxonomy, meta_data, seqs)
+```
+
+Look at Library size (number of reads in each sample)
+```{r}
+df <- as.data.frame(sample_data(psAju))
+df$LibrarySize <- sample_sums(psAju)
+df <- df[order(df$LibrarySize),]
+df$Index <-seq(nrow(df))
+ggplot(data=df, aes(x=Index, y=LibrarySize, color=sample.type)) + geom_point()
+```
+
+*Decontam*
+Identify Contaminants by combined: Fisher's method with default thresholds (recommended by Davis et al. 2018)
+```{r}
+sample_data(psAju)$is.neg <- sample_data(psAju)$sample.type == "FALSE"
+contamdf.comb <- isContaminant(psAju, method="combined", neg="is.neg", conc="quant_reading")
+table(contamdf.comb$contaminant)
+```
+
+Determine which ASVs are the contaminants
+```{r}
+head(which(contamdf.comb$contaminant))
+```
+
+Need to remove contaminant ASVs identified using the Fisher combined method with default thresholds
+
+To delete ASVs found as contaminants by combined method:
+
+Add an ASV column to the taxa table so you can subset ASVs
+```{r}
+tax_table(psPTD) <- cbind(tax_table(psPTD), ASV=taxa_names(psPTD))
+```
+
+Remove all contaminants to create new phyloseq object for downstream stats
+```{r}
+PT2r.noncontam <- prune_taxa(!contamdf.comb$contaminant, AjuPT2rD_data)
+PT2r.noncontam
+```
+
+Final processing before diversity analyses
+```{r}
+sort(sample_sums(PT2r.noncontam))
+```
+
+Need to drop low coverage samples and neg controls
+```{r}
+sort(sample_sums(PT2r.noncontam))
+aju_clean <- prune_samples(sample_sums(ps3)>8000, PT2r.noncontam)
+
+```
+
+Filter singletons (only occur in 1 individual), seems to be a lot of ASVs with little information
+This says needs to occur at least 1 time on at least 2 individual
+```{r}
+aju_clean <- filter_taxa(aju_clean, function (x) {sum(x > 0) >1}, prune=TRUE)
+aju_clean
+```
+
+Sequence counts per sample
+```{r}
+sort(sample_sums(aju_clean))
+```
+
+Total sequences
+```{r}
+sum(sample_sums(aju_clean))
+```
+
+```{r}
+sample_data(aju_clean)$sample <- NA
+sample_data(aju_clean)$sample <- sample_names(aju_clean)
+sample_data(aju_clean)
+```
+
+What is the fold difference between min and max number of sequences?
+```{r}
+max(sample_sums(aju_clean))/min(sample_sums(aju_clean))
+```
+
+
+Save phyloseq object as dataframe.
+```{r}
+dfAjuPT <- as(sample_data(aju_clean), "data.frame")
+t_otu <-t(as(otu_table(aju_clean), "matrix"))
+```
+
+Remove Day 7 and Day 8 samples
+```{r}
+aju_clean <- subset_samples(aju_clean, SampleDay !="Day 7")
+aju_clean <- subset_samples(aju_clean, SampleDay !="Day 8")
+aju_clean
+```
+
+Write out files for later use so don't have to rerun dada2 and decontam everytime
+```{r}
+# OTU Table - convert feature table to matrix
+species_site <- as(otu_table(aju_clean), "matrix")
+write.csv(species_site,"Aju_featuretable.csv")
+
+# Taxonomy Table
+tax <- as(tax_table(aju_clean), "matrix")
+write.csv(tax,"Aju_taxonomy.csv")
+
+# Sample data
+meta_final <- as(sample_data(alpha_df_seqs), "data.frame")
+write.csv(meta_final, "Aju_Metadata.csv")
+
+# Now you can open these files to rebuild the phyloseq object for analysis 
+```
+
+# Calculate Alpha Diversity Calcs
+```{r}
+tree$tip.label
+
+prunedTree <- prune.sample(t_otu,tree)
+# Calculate PD
+PD <- pd(t_otu, prunedTree, include.root = F)
+
+#need to have both alpha and df having the same column info
+PD$SampleID <- row.names(PD)
+seqs <- as.data.frame(sample_sums(aju_clean))
+seqs$SampleID <- row.names(seqs)
+#now merge to get sequence counts and SR and PD in mapping file
+alpha_df <- merge(dfAjuPT, PD, by = "row.names") 
+
+alpha_df_seqs <- merge(alpha_df, seqs)
+head(alpha_df_seqs)
+write.csv(alpha_df_seqs, "Aju_Metadata_noweather.csv")
+```
+
+*Make tree from QIIME2*
+
+############################################################
+##########SWITCH INTO QIIME 2 TO CREATE PHYLOGENETIC TREE
+source activate qiime2-2019.1
+conda activate qiime2-2020.8
+
+cd Documents/CheetahGutMicrobiome/Cheetah_Gut_PoopTime_2runs/AnalysesMicrobiome
+
+qiime tools import \
+--input-path Pooptime_DNAsequences_2runs.fasta \
+--output-path Pooptime_DNAsequences_2runs.qza \
+--type 'FeatureData[Sequence]'
+
+qiime phylogeny align-to-tree-mafft-fasttree \
+--i-sequences Pooptime_DNAsequences_2runs.qza \
+--o-alignment Pooptime_2runs_aligned_rep_seqs.qza \
+--o-masked-alignment Pooptime_2runs_masked_aligned_rep_seqs.qza \
+--o-tree Pooptime_2runs_unrooted_tree.qza \
+--o-rooted-tree Pooptime_2runs_rooted_tree.qza
+
+qiime tools export \
+--input-path Pooptime_2runs_rooted_tree.qza \
+--output-path Pooptime_2runs_exported_tree
+
+exit
+
+#########################SWITCH BACK INTO R############################
+####
+
+Read in tree 
+```{r}
+tree = read.tree("Aju_tree.nwk")
+```

@@ -1,0 +1,262 @@
+---
+title: "S8PT_DAtesting_ASVandPhylum"
+author: "M. Maly"
+date: "2023-04-30"
+output: html_document
+---
+This is code for Differential Abundance testing using DAtest for the samples from "Comparing Stability of Fecal Microbiota by Time and Weather Conditions in a Carnivore, the Cheetah (Acinonyx jubatus)"
+
+Load libraries
+```{r}
+library(phyloseq)
+library(DAtest)
+```
+
+Data Loading - make phyloseq object and dataframe
+```{r phyloseq, echo=FALSE}
+# read in feature table
+S8_feature_tab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
+# Make compatible for phyloseq format
+S8_asv_tab = otu_table(S8_feature_tab, taxa_are_rows = TRUE)
+
+# Read in meta data file: Includes SR and PD values
+S8_meta_data <- read.csv("Aju_Metadata.csv", header = T, row.names = 2)
+# Change quant_reading column to numeric
+S8_meta_data$quant_reading <- as.numeric(S8_meta_data$quant_reading)
+# Make compatible for phyloseq
+S8mf <- sample_data(S8_meta_data)
+
+# Read in taxonomy file
+S8_taxonomy <- read.csv("Aju_taxonomy.csv", row.names = 1)
+# Taxonomy needs to be a matrix
+S8_taxonomy <- as.matrix(S8_taxonomy)
+# Make compatible for phyloseq
+S8_taxonomy_final = tax_table(S8_taxonomy)
+
+###Write in DNA sequences
+S8_DNAseqs <- readDNAStringSet("Aju_DNAsequences_2runs.fasta")
+
+##read in tree ### 
+S8_tree = read.tree("Aju_tree.nwk")
+
+
+###Merge it all together:  
+S8 <- merge_phyloseq(S8mf, S8_asv_tab, S8_taxonomy_final,S8_DNAseqs, S8_tree)
+# Remove chloroplasts
+S8 <- subset_taxa(S8, Phylum != "Cyanobacteria/Chloroplast")
+
+# make a dataframe from the phyloseq object
+dfS8 <- as(sample_data(S8), "data.frame")
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Differental Abundance Test at the ASV level
+```{r}
+devtools::install_github("Russel88/DAtest")
+library(DAtest)
+
+# use preDA() to filter dataset
+S8s.pre <- preDA(S8, min.samples = 5, min.reads = 10, min.abundance = 0)
+
+# Run DAtest on filtered dataset to identify best DA method
+S8test_species <- testDA(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", effectSize = 10)
+# Save output
+S8_DAtest.output <- summary(S8test_species)
+str(S8_DAtest.output)
+
+```
+
+DA tests for ASV level
+```{r}
+# Top 3 chosen due to HIGH AUC and LOW FPR:
+# Linear model (lmc), Log linear reg.2 (llm2), Log linear reg (llm)
+
+# lmc test -----------------------------------------------
+S8_DA.lmc <- DA.lmc(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+S8_DA.lmc[S8_DA.lmc$pval.adj < 0.05, "Feature"] 
+
+# look at post hoc: Apply lsmeans for each feature for a selected variable and output the adjusted p-values: This requires the lsmeans package.
+
+# lmc post hoc
+S8_ASV_DA.lmc <- DA.lmc(y1, predictor = "TYPE2", allResults = TRUE)
+lmc_ASV.tukeys <- DA.lsmeans(S8_DA.lmc, variable = "predictor") 
+View(lmc_ASV.tukeys) # look at pvalue adjusted
+
+# Subset Day 0 vs all other days and the adjusted pvals
+lmc.ASV_tukey_D0vAll <- lmc_ASV.tukeys[,c(1:5,31:35)]
+lmc.ASV_tukey_D0vAll$ASV <- row.names(lmc.ASV_tukey_D0vAll)
+View(lmc.ASV_tukey_D0vAll)
+
+# llm2 test ----------------------------------------------
+S8_DA.llm2 <- DA.llm2(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID")
+S8_DA.llm2[S8_DA.llm2$pval.adj < 0.05, "Feature"]
+
+# llm2 post hoc
+S8_DA.llm2 <- DA.llm2(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+llm2_ASV.tukeys <- DA.lsmeans(S8_DA.llm2, variable = "predictor") 
+View(llm2_ASV.tukeys) # look at pvalue adjusted
+
+# Subset Day 0 vs all other days and the adjusted pvals
+llm2.ASV_tukey_D0vAll <- llm2_ASV.tukeys[,c(1:5,31:35)]
+llm2.ASV_tukey_D0vAll$ASV <- row.names(llm2.ASV_tukey_D0vAll)
+View(llm2.ASV_tukey_D0vAll)
+
+# llm test ----------------------------------------------------
+S8_DA.llm <- DA.llm(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID")
+S8_DA.llm[S8_DA.llm$pval.adj < 0.05, "Feature"]
+
+# llm2 post hoc
+S8_DA.llm <- DA.llm(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+llm_ASV.tukeys <- DA.lsmeans(S8_DA.llm, variable = "predictor") 
+View(llm_ASV.tukeys) # look at pvalue adjusted
+
+# Subset Day 0 vs all other days and the adjusted pvals
+llm.ASV_tukey_D0vAll <- llm_ASV.tukeys[,c(1:5,31:35)]
+llm.ASV_tukey_D0vAll$ASV <- row.names(llm.ASV_tukey_D0vAll)
+View(llm.ASV_tukey_D0vAll)
+
+# Pull out any rows where columns 6:10 are greater than or equal to 0.05 (the row must have < 0.05 in ALL columns to be pulled out)
+lmc_all <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,c(6:10)] <= 0.05,]
+View(lmc_all)
+llm_all <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,c(6:10)] <= 0.05,]
+View(llm_all)
+llm2_all <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,c(6:10)] <= 0.05,]
+View(llm2_all)
+
+# Pull out any rows where Day 0 and Day 1 are significantly different
+lmc_D0v1 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,6] <= 0.05,]
+View(lmc_D0v1) #ASV 119
+llm2_D0v1 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,6] <= 0.05,]
+View(llm2_D0v1) #ASV 119 and ASV 38
+llm_D0v1 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,6] <= 0.05,]
+View(llm_D0v1) #ASV 64 and 119
+# Day 0 vs Day 1 ASVs: 119
+
+lmc_D0v2 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,7] <= 0.05,]
+View(lmc_D0v2) #ASVs: 119, 38, 1, 26
+llm2_D0v2 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,7] <= 0.05,]
+View(llm2_D0v2) #ASVs: 26, 38, 48, 1, 119, 88
+llm_D0v2 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,7] <= 0.05,]
+View(llm_D0v2) #ASVs: 26, 38, 1, 119, 154
+# Day 0 vs Day 2 ASVs: 119, 38, 1, 26
+
+lmc_D0v3 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,8] <= 0.05,]
+View(lmc_D0v3) #ASVs: 119, 34, 48, 38, 1, 46, 12, 26, 5, 13, 27, 86, 33, 88, 71, 4, 17
+llm2_D0v3 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,8] <= 0.05,]
+View(llm2_D0v3) #ASVs: 17, 46, 26, 98, 71, 31, 38, 62, 4, 34, 64, 48, 12, 1, 16, 111, 22, 119, 19, 18, 88
+llm_D0v3 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,8] <= 0.05,]
+View(llm_D0v3) #ASVs: 17, 46, 26, 38, 4, 34, 64, 48, 12, 1, 86, 119, 154
+# Day 0 vs Day 3 ASVs: 119, 34, 48, 38, 4, 1, 46, 12, 26, 86, 88, 71, 17
+
+lmc_D0v4 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,9] <= 0.05,]
+View(lmc_D0v4) #ASVs: 119, 34, 64, 48, 38, 1, 46, 12, 26, 5, 86, 4, 17
+llm2_D0v4 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,9] <= 0.05,]
+View(llm2_D0v4) #ASVs: 17, 46, 26, 38, 4, 34, 64, 48, 12, 1, 119, 88
+llm_D0v4 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,9] <= 0.05,]
+View(llm_D0v4) #ASVs: 26, 38, 34, 64, 48, 119
+# Day 0 vs Day 4 ASVs: 119, 34, 64, 48, 38, 1, 46, 12, 26, 4, 17
+
+lmc_D0v5 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,10] <= 0.05,]
+View(lmc_D0v5) #ASVs: 119, 38, 1, 46, 12, 26, 13, 4
+llm2_D0v5 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,10] <= 0.05,]
+View(llm2_D0v5) #ASVs: 17, 46, 26, 38, 4, 34, 48, 12, 1, 13, 88
+llm_D0v5 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,10] <= 0.05,]
+View(llm_D0v5)
+
+S8_DA_tukeyASVs <- c("ASV 119", "ASV 38", "ASV 1", "ASV 26", "ASV 34", "ASV 48", "ASV 4", "ASV 46", "ASV 12", "ASV 86", "ASV 88", "ASV 71", "ASV 17", "ASV 64", "ASV 13")
+# Use for Figure 2
+```
+
+
+Differential Abundance Analysis at the Phylum level
+```{r}
+# Using same tests as ASV
+
+# Prep data
+S8_phylum <- tax_glom(S8, taxrank = 'Phylum')
+
+# lmc test -----------------------------------------------------
+S8_P.lmc <- DA.lmc(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE) # added the allResults = TRUE because it needed that arguement to run the tukey post hoc tests but now the following line (931) doesn't work, so I'm not sure which is better/easier to look at
+View(S8_P.lmc)
+
+# lmc POST HOC - use lsmeans
+lmc_P.posthoc <- DA.lsmeans(S8_P.lmc, variable = "predictor", predictor = "SampleDay")
+View(lmc_P.posthoc) # look at pvalue adjusted
+
+# Subset Day 0 vs all other days and the adjusted pvals
+lmc.P_posthoc_D0vAll <- lmc_P.posthoc[,c(1:5,31:35)]
+lmc.P_posthoc_D0vAll$ASV <- row.names(lmc.P_posthoc_D0vAll)
+View(lmc.P_posthoc_D0vAll)
+
+# llm2 test -----------------------------------------------------
+S8_P.llm2 <- DA.llm2(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+
+# llm2 post hoc
+llm2_P.posthoc <- DA.lsmeans(S8_P.llm2, variable = "predictor", predictor = "SampleDay") 
+View(llm2_P.posthoc) # look at pvalue adjusted
+
+# Subset Day 0 vs all other days and the adjusted pvals
+llm2.P_posthoc_D0vAll <- llm2_P.posthoc[,c(1:5,31:35)]
+llm2.P_posthoc_D0vAll$ASV <- row.names(llm2.P_posthoc_D0vAll)
+View(llm2.P_posthoc_D0vAll)
+
+# llm test-----------------------------------------------------
+S8_P.llm <- DA.llm(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+
+# llm2 post hoc
+llm_P.posthoc <- DA.lsmeans(S8_P.llm, variable = "predictor", predictor = "SampleDay") 
+View(llm_P.posthoc) # look at pvalue adjusted
+# Subset Day 0 vs all other days and the adjusted pvals
+llm.P_posthoc_D0vAll <- llm_P.posthoc[,c(1:5,31:35)]
+llm.P_posthoc_D0vAll$ASV <- row.names(llm.P_posthoc_D0vAll)
+View(llm.P_posthoc_D0vAll)
+
+# Identify Diferential phylum between Day 0 and all other days ---------------
+# Pull out any rows where Day 0 and Day 1 are significantly different
+lmc_P_D0v1 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,6] <= 0.05,]
+View(lmc_P_D0v1) # None
+llm2_P_D0v1 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,6] <= 0.05,]
+View(llm2_P_D0v1) #ASV 4
+llm_P_D0v1 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,6] <= 0.05,]
+View(llm_P_D0v1) # None
+# Day 0 vs Day 1 ASVs: 4
+
+lmc_P_D0v2 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,7] <= 0.05,]
+View(lmc_P_D0v2) # None
+llm2_P_D0v2 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,7] <= 0.05,]
+View(llm2_P_D0v2) #ASVs: 17, 4
+llm_P_D0v2 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,7] <= 0.05,]
+View(llm_P_D0v2) # None
+# Day 0 vs Day 2 ASVs: 17, 4
+
+lmc_P_D0v3 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,8] <= 0.05,]
+View(lmc_P_D0v3) #ASVs: 4, 2, 1
+llm2_P_D0v3 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,8] <= 0.05,]
+View(llm2_P_D0v3) #ASVs: 17, 4
+llm_P_D0v3 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,8] <= 0.05,]
+View(llm_P_D0v3) #ASVs: 4, 2, 1
+# Day 0 vs Day 3 ASVs: 4, 2, 1
+
+lmc_P_D0v4 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,9] <= 0.05,]
+View(lmc_P_D0v4) #ASVs: 4, 2
+llm2_P_D0v4 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,9] <= 0.05,]
+View(llm2_P_D0v4) #ASVs: 4
+llm_P_D0v4 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,9] <= 0.05,]
+View(llm_P_D0v4) #ASVs: 4, 2
+# Day 0 vs Day 4 ASVs: 4, 2
+
+lmc_P_D0v5 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,10] <= 0.05,]
+View(lmc_P_D0v5) #ASVs: 4
+llm2_P_D0v5 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,10] <= 0.05,]
+View(llm2_P_D0v5) #ASVs: 17, 4
+llm_P_D0v5 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,10] <= 0.05,]
+View(llm_P_D0v5) #ASVs: 4
+
+S8_P_tukeyASVs <- c("ASV4", "ASV1", "ASV2", "ASV17")
+length(S8_P_tukeyASVs) # use for figure 1
+```
