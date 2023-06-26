@@ -10,6 +10,8 @@ Load libraries
 ```{r}
 library(phyloseq)
 library(DAtest)
+library(Biostrings)
+library(ape)
 ```
 
 Data Loading - make phyloseq object and dataframe
@@ -185,6 +187,7 @@ S8_P.lmc <- DA.lmc(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allR
 View(S8_P.lmc)
 
 # lmc POST HOC - use lsmeans
+S8_P.lmc <- DA.lmc(S8_phylum, predictor = "SampleDay", paired = "FecalSeries", allResults = TRUE)
 lmc_P.posthoc <- DA.lsmeans(S8_P.lmc, variable = "predictor", predictor = "SampleDay")
 View(lmc_P.posthoc) # look at pvalue adjusted
 
@@ -194,9 +197,10 @@ lmc.P_posthoc_D0vAll$ASV <- row.names(lmc.P_posthoc_D0vAll)
 View(lmc.P_posthoc_D0vAll)
 
 # llm2 test -----------------------------------------------------
-S8_P.llm2 <- DA.llm2(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+S8_P.llm2 <- DA.llm2(S8_phylum, predictor = "SampleDay", paired = "FecalSeries", allResults = FALSE)
 
 # llm2 post hoc
+S8_P.llm2 <- DA.llm2(S8_phylum, predictor = "SampleDay", paired = "FecalSeries", allResults = TRUE)
 llm2_P.posthoc <- DA.lsmeans(S8_P.llm2, variable = "predictor", predictor = "SampleDay") 
 View(llm2_P.posthoc) # look at pvalue adjusted
 
@@ -206,9 +210,10 @@ llm2.P_posthoc_D0vAll$ASV <- row.names(llm2.P_posthoc_D0vAll)
 View(llm2.P_posthoc_D0vAll)
 
 # llm test-----------------------------------------------------
-S8_P.llm <- DA.llm(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+S8_P.llm <- DA.llm(S8_phylum, predictor = "SampleDay", paired = "FecalSeries", allResults = FALSE)
 
 # llm2 post hoc
+S8_P.llm <- DA.llm(S8_phylum, predictor = "SampleDay", paired = "FecalSeries", allResults = TRUE)
 llm_P.posthoc <- DA.lsmeans(S8_P.llm, variable = "predictor", predictor = "SampleDay") 
 View(llm_P.posthoc) # look at pvalue adjusted
 # Subset Day 0 vs all other days and the adjusted pvals
@@ -216,47 +221,58 @@ llm.P_posthoc_D0vAll <- llm_P.posthoc[,c(1:5,31:35)]
 llm.P_posthoc_D0vAll$ASV <- row.names(llm.P_posthoc_D0vAll)
 View(llm.P_posthoc_D0vAll)
 
-# Identify Diferential phylum between Day 0 and all other days ---------------
+# Identify Differential phylum between Day 0 and all other days ---------------
 # Pull out any rows where Day 0 and Day 1 are significantly different
-lmc_P_D0v1 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,6] <= 0.05,]
+lmc_P_D0v1 <- lmc.P_posthoc_D0vAll[lmc.P_posthoc_D0vAll[,6] <= 0.05,]
 View(lmc_P_D0v1) # None
-llm2_P_D0v1 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,6] <= 0.05,]
+llm2_P_D0v1 <- llm2.P_posthoc_D0vAll[llm2.P_posthoc_D0vAll[,6] <= 0.05,]
 View(llm2_P_D0v1) #ASV 4
-llm_P_D0v1 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,6] <= 0.05,]
+llm_P_D0v1 <- llm.P_posthoc_D0vAll[llm.P_posthoc_D0vAll[,6] <= 0.05,]
 View(llm_P_D0v1) # None
-# Day 0 vs Day 1 ASVs: 4
+# Day 0 vs Day 1 ASVs: None
 
-lmc_P_D0v2 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,7] <= 0.05,]
+lmc_P_D0v2 <- lmc.P_posthoc_D0vAll[lmc.P_posthoc_D0vAll[,7] <= 0.05,]
 View(lmc_P_D0v2) # None
-llm2_P_D0v2 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,7] <= 0.05,]
+llm2_P_D0v2 <- llm2.P_posthoc_D0vAll[llm2.P_posthoc_D0vAll[,7] <= 0.05,]
 View(llm2_P_D0v2) #ASVs: 17, 4
-llm_P_D0v2 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,7] <= 0.05,]
+llm_P_D0v2 <- llm.P_posthoc_D0vAll[llm.P_posthoc_D0vAll[,7] <= 0.05,]
 View(llm_P_D0v2) # None
-# Day 0 vs Day 2 ASVs: 17, 4
+# Day 0 vs Day 2 ASVs: None
 
-lmc_P_D0v3 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,8] <= 0.05,]
+lmc_P_D0v3 <- lmc.P_posthoc_D0vAll[lmc.P_posthoc_D0vAll[,8] <= 0.05,]
 View(lmc_P_D0v3) #ASVs: 4, 2, 1
-llm2_P_D0v3 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,8] <= 0.05,]
+llm2_P_D0v3 <- llm2.P_posthoc_D0vAll[llm2.P_posthoc_D0vAll[,8] <= 0.05,]
 View(llm2_P_D0v3) #ASVs: 17, 4
-llm_P_D0v3 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,8] <= 0.05,]
+llm_P_D0v3 <- llm.P_posthoc_D0vAll[llm.P_posthoc_D0vAll[,8] <= 0.05,]
 View(llm_P_D0v3) #ASVs: 4, 2, 1
 # Day 0 vs Day 3 ASVs: 4, 2, 1
 
-lmc_P_D0v4 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,9] <= 0.05,]
+lmc_P_D0v4 <- lmc.P_posthoc_D0vAll[lmc.P_posthoc_D0vAll[,9] <= 0.05,]
 View(lmc_P_D0v4) #ASVs: 4, 2
-llm2_P_D0v4 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,9] <= 0.05,]
+llm2_P_D0v4 <- llm2.P_posthoc_D0vAll[llm2.P_posthoc_D0vAll[,9] <= 0.05,]
 View(llm2_P_D0v4) #ASVs: 4
-llm_P_D0v4 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,9] <= 0.05,]
+llm_P_D0v4 <- llm.P_posthoc_D0vAll[llm.P_posthoc_D0vAll[,9] <= 0.05,]
 View(llm_P_D0v4) #ASVs: 4, 2
 # Day 0 vs Day 4 ASVs: 4, 2
 
-lmc_P_D0v5 <- lmc.P_tukey_D0vAll[lmc.P_tukey_D0vAll[,10] <= 0.05,]
+lmc_P_D0v5 <- lmc.P_posthoc_D0vAll[lmc.P_posthoc_D0vAll[,10] <= 0.05,]
 View(lmc_P_D0v5) #ASVs: 4
-llm2_P_D0v5 <- llm2.P_tukey_D0vAll[llm2.P_tukey_D0vAll[,10] <= 0.05,]
+llm2_P_D0v5 <- llm2.P_posthoc_D0vAll[llm2.P_posthoc_D0vAll[,10] <= 0.05,]
 View(llm2_P_D0v5) #ASVs: 17, 4
-llm_P_D0v5 <- llm.P_tukey_D0vAll[llm.P_tukey_D0vAll[,10] <= 0.05,]
+llm_P_D0v5 <- llm.P_posthoc_D0vAll[llm.P_posthoc_D0vAll[,10] <= 0.05,]
 View(llm_P_D0v5) #ASVs: 4
+# Day 0 vs Day 5 ASVs: 4
 
-S8_P_tukeyASVs <- c("ASV4", "ASV1", "ASV2", "ASV17")
+# Day 0 vs Day 1 ASVs: None
+# Day 0 vs Day 2 ASVs: None
+# Day 0 vs Day 3 ASVs: 4, 2, 1
+# Day 0 vs Day 4 ASVs: 4, 2
+# Day 0 vs Day 5 ASVs: 4
+
+# ASV4 = Fusobacteria
+# ASV2 = Proteobacteria
+# ASV1 = Firmicutes
+
+S8_P_tukeyASVs <- c("ASV4", "ASV1", "ASV2")
 length(S8_P_tukeyASVs) # use for figure 1
 ```
