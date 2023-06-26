@@ -190,7 +190,7 @@ Differential Abundance Analysis at the Phylum level
 S8_phylum <- tax_glom(S8, taxrank = 'Phylum')
 
 # lmc test -----------------------------------------------------
-S8_P.lmc <- DA.lmc(S8_phylum, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE) # added the allResults = TRUE because it needed that arguement to run the tukey post hoc tests but now the following line (931) doesn't work, so I'm not sure which is better/easier to look at
+S8_P.lmc <- DA.lmc(S8_phylum, predictor = "SampleDay", paired = "FecalSeries", allResults = FALSE)
 View(S8_P.lmc)
 
 # lmc POST HOC - use lsmeans
