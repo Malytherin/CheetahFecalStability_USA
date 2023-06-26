@@ -204,7 +204,7 @@ Figure 1 - Box plots of significantly differential abundant Phyla
 S8_phylum <- tax_glom(S8, taxrank = 'Phylum')
 OTU_S8.Pglom <- otu_table(S8_phylum)
 
-S8_P_tukeyASVs <- c("ASV4", "ASV1", "ASV2", "ASV17") # From DA test results
+S8_P_tukeyASVs <- c("ASV4", "ASV1", "ASV2") # From DA test results
 sigP <- S8_P_tukeyASVs
 sigP
 
@@ -215,9 +215,10 @@ tax_table(S8_phylum) <- cbind(tax_table(S8_phylum), ASV=taxa_names(S8_phylum))
 # Need to convert count data to abundance data
 s8.P.RA <- transform_sample_counts(S8_phylum, function(x) x / sum(x))
 tax_table(s8.P.RA) <- cbind(tax_table(s8.P.RA), ASV=taxa_names(s8.P.RA))
-# Remove phyla that were NOT significantly different across days
-select_sigPhyla <- subset_taxa(s8.P.RA, Phylum != "Candidatus_Saccharibacteria")
-select_sigPhyla <- subset_taxa(select_sigPhyla, Phylum != "Actinobacteria")
+
+
+# Need to subset to only significantly DA Phyla
+select_sigPhyla <- subset_taxa(s8.P.RA, ASV %in% sigP)
 
 View(select_sigPhyla)
 View(tax_table(select_sigPhyla))
@@ -230,6 +231,8 @@ levels(sample_data(select_sigPhyla)$Fecal.ID)
 
 # Create box plot
 # https://github.com/joey711/phyloseq/issues/1501
+
+
 S8_DA_phylum <- 
   phyloseq::psmelt(select_sigPhyla) %>%
   ggplot(data = ., aes(x=SampleDay, y=Abundance, fill = Phylum)) +
