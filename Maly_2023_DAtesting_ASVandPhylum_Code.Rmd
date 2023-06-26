@@ -80,15 +80,14 @@ DA tests for ASV level
 # Linear model (lmc), Log linear reg.2 (llm2), Log linear reg (llm)
 
 # lmc test -----------------------------------------------
-S8_DA.lmc <- DA.lmc(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+S8_DA.lmc <- DA.lmc(S8, predictor = "SampleDay", paired = "FecalSeries", allResults = TRUE)
 S8_DA.lmc[S8_DA.lmc$pval.adj < 0.05, "Feature"] 
-
+View(S8_DA.lmc)
 # look at post hoc: Apply lsmeans for each feature for a selected variable and output the adjusted p-values: This requires the lsmeans package.
 
 # lmc post hoc
-S8_ASV_DA.lmc <- DA.lmc(y1, predictor = "TYPE2", allResults = TRUE)
 lmc_ASV.tukeys <- DA.lsmeans(S8_DA.lmc, variable = "predictor") 
-View(lmc_ASV.tukeys) # look at pvalue adjusted
+View(lmc_ASV.tukeys) # look at p.adjusted
 
 # Subset Day 0 vs all other days and the adjusted pvals
 lmc.ASV_tukey_D0vAll <- lmc_ASV.tukeys[,c(1:5,31:35)]
@@ -96,11 +95,11 @@ lmc.ASV_tukey_D0vAll$ASV <- row.names(lmc.ASV_tukey_D0vAll)
 View(lmc.ASV_tukey_D0vAll)
 
 # llm2 test ----------------------------------------------
-S8_DA.llm2 <- DA.llm2(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID")
+S8_DA.llm2 <- DA.llm2(S8, predictor = "SampleDay", paired = "FecalSeries")
 S8_DA.llm2[S8_DA.llm2$pval.adj < 0.05, "Feature"]
 
 # llm2 post hoc
-S8_DA.llm2 <- DA.llm2(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+S8_DA.llm2 <- DA.llm2(S8, predictor = "SampleDay", paired = "FecalSeries", allResults = TRUE)
 llm2_ASV.tukeys <- DA.lsmeans(S8_DA.llm2, variable = "predictor") 
 View(llm2_ASV.tukeys) # look at pvalue adjusted
 
@@ -110,11 +109,11 @@ llm2.ASV_tukey_D0vAll$ASV <- row.names(llm2.ASV_tukey_D0vAll)
 View(llm2.ASV_tukey_D0vAll)
 
 # llm test ----------------------------------------------------
-S8_DA.llm <- DA.llm(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID")
+S8_DA.llm <- DA.llm(S8, predictor = "SampleDay", paired = "FecalSeries")
 S8_DA.llm[S8_DA.llm$pval.adj < 0.05, "Feature"]
 
 # llm2 post hoc
-S8_DA.llm <- DA.llm(S8s.pre, predictor = "SampleDay", paired = "Fecal.ID", allResults = TRUE)
+S8_DA.llm <- DA.llm(S8, predictor = "SampleDay", paired = "FecalSeries", allResults = TRUE)
 llm_ASV.tukeys <- DA.lsmeans(S8_DA.llm, variable = "predictor") 
 View(llm_ASV.tukeys) # look at pvalue adjusted
 
@@ -143,35 +142,41 @@ View(llm_D0v1) #ASV 64 and 119
 lmc_D0v2 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,7] <= 0.05,]
 View(lmc_D0v2) #ASVs: 119, 38, 1, 26
 llm2_D0v2 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,7] <= 0.05,]
-View(llm2_D0v2) #ASVs: 26, 38, 48, 1, 119, 88
+View(llm2_D0v2) #ASVs: 26, 38, 48, 119, 88
 llm_D0v2 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,7] <= 0.05,]
-View(llm_D0v2) #ASVs: 26, 38, 1, 119, 154
-# Day 0 vs Day 2 ASVs: 119, 38, 1, 26
+View(llm_D0v2) #ASVs: 26, 38, 119
+# Day 0 vs Day 2 ASVs: 119, 38, 26
 
 lmc_D0v3 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,8] <= 0.05,]
-View(lmc_D0v3) #ASVs: 119, 34, 48, 38, 1, 46, 12, 26, 5, 13, 27, 86, 33, 88, 71, 4, 17
+View(lmc_D0v3) #ASVs: 17, 46, 26, 38, 4, 34, 48, 12, 1, 13, 86, 119, 88
 llm2_D0v3 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,8] <= 0.05,]
-View(llm2_D0v3) #ASVs: 17, 46, 26, 98, 71, 31, 38, 62, 4, 34, 64, 48, 12, 1, 16, 111, 22, 119, 19, 18, 88
+View(llm2_D0v3) #ASVs: 17, 46, 26, 71, 31, 38, 4, 34, 64, 48, 1, 119, 19, 18, 88
 llm_D0v3 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,8] <= 0.05,]
-View(llm_D0v3) #ASVs: 17, 46, 26, 38, 4, 34, 64, 48, 12, 1, 86, 119, 154
-# Day 0 vs Day 3 ASVs: 119, 34, 48, 38, 4, 1, 46, 12, 26, 86, 88, 71, 17
+View(llm_D0v3) #ASVs: 17, 26, 38, 34, 64, 48, 119
+# Day 0 vs Day 3 ASVs: 119, 34, 48, 38, 4, 1, 46, 26, 88, 17
 
 lmc_D0v4 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,9] <= 0.05,]
-View(lmc_D0v4) #ASVs: 119, 34, 64, 48, 38, 1, 46, 12, 26, 5, 86, 4, 17
+View(lmc_D0v4) #ASVs: 26, 38, 34, 48, 12, 1, 119
 llm2_D0v4 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,9] <= 0.05,]
-View(llm2_D0v4) #ASVs: 17, 46, 26, 38, 4, 34, 64, 48, 12, 1, 119, 88
+View(llm2_D0v4) #ASVs: 46, 26, 38, 4, 34, 64, 48, 12, 119, 88
 llm_D0v4 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,9] <= 0.05,]
-View(llm_D0v4) #ASVs: 26, 38, 34, 64, 48, 119
-# Day 0 vs Day 4 ASVs: 119, 34, 64, 48, 38, 1, 46, 12, 26, 4, 17
+View(llm_D0v4) #ASVs: 64, 119
+# Day 0 vs Day 4 ASVs: 119, 34, 64, 48, 38, 12, 26
 
 lmc_D0v5 <- lmc.ASV_tukey_D0vAll[lmc.ASV_tukey_D0vAll[,10] <= 0.05,]
-View(lmc_D0v5) #ASVs: 119, 38, 1, 46, 12, 26, 13, 4
+View(lmc_D0v5) #ASVs: 46, 38, 12, 1, 119
 llm2_D0v5 <- llm2.ASV_tukey_D0vAll[llm2.ASV_tukey_D0vAll[,10] <= 0.05,]
-View(llm2_D0v5) #ASVs: 17, 46, 26, 38, 4, 34, 48, 12, 1, 13, 88
+View(llm2_D0v5) #ASVs: 38
 llm_D0v5 <- llm.ASV_tukey_D0vAll[llm.ASV_tukey_D0vAll[,10] <= 0.05,]
-View(llm_D0v5)
+View(llm_D0v5) #ASVs: 119
+# Day 0 vs 5 ASVs: 38, 119
 
-S8_DA_tukeyASVs <- c("ASV 119", "ASV 38", "ASV 1", "ASV 26", "ASV 34", "ASV 48", "ASV 4", "ASV 46", "ASV 12", "ASV 86", "ASV 88", "ASV 71", "ASV 17", "ASV 64", "ASV 13")
+# Day 0 vs Day 1 ASVs: 119
+# Day 0 vs Day 2 ASVs: 119, 38, 26
+# Day 0 vs Day 3 ASVs: 119, 34, 48, 38, 4, 1, 46, 26, 88, 17
+# Day 0 vs Day 4 ASVs: 119, 34, 64, 48, 38, 12, 26
+# Day 0 vs Day 5 ASVs: 38, 119
+
 # Use for Figure 2
 ```
 
