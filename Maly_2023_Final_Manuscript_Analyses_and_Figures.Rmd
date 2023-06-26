@@ -252,8 +252,8 @@ Figure 2 - Heat map of differentially abundant ASVS
 ```{r}
 # Import otu_table that is the subset of all ASVs that were significant differentially abundant between Day 0 and all other Days
 S8_DA_ASVs <- read.csv("S8_DA_ASVtable_Apr2022.csv", header = TRUE) # This is count based from DAtest code
-sigASVs <- S8.DA_ASVs[,8]
-sigASVs
+sigASV <- S8.DA_ASVs[,8]
+sigASV
 
 # Prep data ---------------------------------------------------------
 # Bring in taxonomy: Need an OTU ID in the taxonomy table to match to
@@ -264,15 +264,15 @@ s8RA <- transform_sample_counts(S8, function(x) x / sum(x))
 tax_table(s8RA) <- cbind(tax_table(s8RA), ASV=taxa_names(s8RA))
 View(tax_table(s8RA))
 # Need to subset to only sigASVs
-select_sigASVs <- subset_taxa(s8RA, ASV %in% sigASVs)
+select_sigASV <- subset_taxa(s8RA, ASV %in% sigASV)
 
 # Set as factors
-select_sigASVs@sam_data$Fecal.ID <- c("Aju 1", "Aju 1", "Aju 1","Aju 1","Aju 1","Aju 1", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 7", "Aju 7", "Aju 7", "Aju 7", "Aju 8", "Aju 8", "Aju 8")
-select_sigASVs@sam_data$Fecal_Series <- select_sigASVs@sam_data$Fecal.ID
-sample_data(select_sigASVs)$SampleDay <- factor(sample_data(select_sigASVs)$SampleDay, levels = c("Day 0", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5"))
+select_sigASV@sam_data$Fecal.ID <- c("Aju 1", "Aju 1", "Aju 1","Aju 1","Aju 1","Aju 1", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 7", "Aju 7", "Aju 7", "Aju 7", "Aju 8", "Aju 8", "Aju 8")
+select_sigASV@sam_data$Fecal_Series <- select_sigASV@sam_data$Fecal.ID
+sample_data(select_sigASV)$SampleDay <- factor(sample_data(select_sigASV)$SampleDay, levels = c("Day 0", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5"))
 
 # Group by Sample Day 
-ph.Fid <- plot_heatmap(select_sigASVs, distance = "euclidean", sample.label = "Fecal_Series", taxa.label = "ASV", taxa.order = "Genus", high = "red", low = "yellow", na.value = "darkgrey", sample.order = "Fecal.ID") + theme(text = element_text(family = "Times New Roman"))
+ph.Fid <- plot_heatmap(select_sigASV, distance = "euclidean", sample.label = "Fecal_Series", taxa.label = "ASV", taxa.order = "Genus", high = "red", low = "yellow", na.value = "darkgrey", sample.order = "Fecal.ID") + theme(text = element_text(family = "Times New Roman"))
 # Facet Wrap by SampleDay
 s8htmp_ASV <- ph.Fid + facet_grid(~SampleDay, scales = "free_x") 
 
