@@ -177,6 +177,7 @@ View(llm_D0v5) #ASVs: 119
 # Day 0 vs Day 4 ASVs: 119, 34, 64, 48, 38, 12, 26
 # Day 0 vs Day 5 ASVs: 38, 119
 
+S8_DA_tukeyASVs <- c("ASV119", "ASV38", "ASV1", "ASV26", "ASV34", "ASV48", "ASV4", "ASV46", "ASV12", "ASV88", "ASV17", "ASV64")
 # Use for Figure 2
 ```
 
