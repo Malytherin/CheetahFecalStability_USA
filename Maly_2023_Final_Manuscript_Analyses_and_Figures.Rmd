@@ -238,10 +238,11 @@ S8_DA_phylum <-
   ggplot(data = ., aes(x=SampleDay, y=Abundance, fill = Phylum)) +
   geom_boxplot(outlier.shape = 19) + 
   geom_jitter(width = .2) +
-  labs(x="", y = "Relative Abundance") +
+  theme(text = element_text(size = 15)) +
+  labs(x="", y = "Relative Abundance (% sequences)") +
   stat_summary(fun = "mean", geom = "point", shape = 23) +
   theme_classic() +
-  scale_fill_manual(values = c("#003f5c", "#7a5195", "#ef5675", "#ffa600")) +
+  scale_fill_manual(values = c("#003f5c" ,"#ffa600", "#7a5195")) +
   facet_wrap(~Phylum, scales = "free")
 
 S8_DA_phylum
