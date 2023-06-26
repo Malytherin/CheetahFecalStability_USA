@@ -22,7 +22,7 @@ S8_feature_tab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
 S8_asv_tab = otu_table(S8_feature_tab, taxa_are_rows = TRUE)
 
 # Read in meta data file: Includes SR and PD values
-S8_meta_data <- read.csv("Aju_Metadata.csv", header = T, row.names = 2)
+S8_meta_data <- read.csv("Aju_Metadata.csv", header = T, row.names = 1)
 # Change quant_reading column to numeric
 S8_meta_data$quant_reading <- as.numeric(S8_meta_data$quant_reading)
 # Make compatible for phyloseq
