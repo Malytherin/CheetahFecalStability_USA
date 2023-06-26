@@ -46,7 +46,8 @@ S8_tree = read.tree("Aju_tree.nwk")
 S8 <- merge_phyloseq(S8mf, S8_asv_tab, S8_taxonomy_final,S8_DNAseqs, S8_tree)
 # Remove chloroplasts
 S8 <- subset_taxa(S8, Phylum != "Cyanobacteria/Chloroplast")
-
+S8 # 268 taxa and 41 samples
+#S8 <- filter_taxa(S8, function(x) {sum(x > 0) > 1}, prune = TRUE) # 246 taxa and 41 samples
 # make a dataframe from the phyloseq object
 dfS8 <- as(sample_data(S8), "data.frame")
 
