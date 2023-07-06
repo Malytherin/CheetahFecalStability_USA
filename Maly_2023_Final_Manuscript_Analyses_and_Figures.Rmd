@@ -56,7 +56,7 @@ S8_feature_tab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
 S8_asv_tab = otu_table(S8_feature_tab, taxa_are_rows = TRUE)
 
 # Read in meta data file
-S8_meta_data <- read.csv("Aju_Metadata.csv", header = T, row.names = 2)
+S8_meta_data <- read.csv("Aju_Metadata.csv", header = T, row.names = 1)
 # Change quant_reading column to numeric
 S8_meta_data$quant_reading <- as.numeric(S8_meta_data$quant_reading)
 # Make compatible for phyloseq
@@ -253,7 +253,7 @@ Figure 2 - Heat map of differentially abundant ASVS
 ```{r}
 # Import otu_table that is the subset of all ASVs that were significant differentially abundant between Day 0 and all other Days
 S8_DA_ASVs <- read.csv("S8_DA_ASVtable_Apr2022.csv", header = TRUE) # This is count based from DAtest code
-sigASV <- S8.DA_ASVs[,8]
+sigASV <- S8_DA_ASVs[,8]
 sigASV
 
 # Prep data ---------------------------------------------------------
