@@ -1,14 +1,14 @@
 ---
-title: "S8PT_Analyses_Final.Figures"
+title: "Aju_USA_Analyses_Final.Figures"
 author: "M. Maly"
 date: "2022-08-02"
 output: html_document
 ---
 
-S8 Poop Time Final Analyses and Figures for Manuscript
+Cheetah Fecal Microbiota USA Final Analyses and Figures for Manuscript
 
 # Load libraries
-```{r, echo=FALSE}
+```{r, echo=FALSE, results='hide'}
 library(Biostrings)
 library(GGally)
 library(XVector)
@@ -216,12 +216,8 @@ tax_table(S8_phylum) <- cbind(tax_table(S8_phylum), ASV=taxa_names(S8_phylum))
 s8.P.RA <- transform_sample_counts(S8_phylum, function(x) x / sum(x))
 tax_table(s8.P.RA) <- cbind(tax_table(s8.P.RA), ASV=taxa_names(s8.P.RA))
 
-
 # Need to subset to only significantly DA Phyla
 select_sigPhyla <- subset_taxa(s8.P.RA, ASV %in% sigP)
-
-View(select_sigPhyla)
-View(tax_table(select_sigPhyla))
 
 # Set Sample Day and Fecal.ID as factors
 sample_data(select_sigPhyla)$SampleDay <- factor(sample_data(select_sigPhyla)$SampleDay, levels = c("Day 0", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5"))
@@ -239,11 +235,12 @@ S8_DA_phylum <-
   geom_boxplot(outlier.shape = 19) + 
   geom_jitter(width = .2) +
   theme(text = element_text(size = 15)) +
-  labs(x="", y = "Relative Abundance (% sequences)") +
+  labs(x="", y = "Relative Abundance") +
   stat_summary(fun = "mean", geom = "point", shape = 23) +
   theme_classic() +
   scale_fill_manual(values = c("#003f5c" ,"#ffa600", "#7a5195")) +
-  facet_wrap(~Phylum, scales = "free")
+  facet_wrap(~Phylum, scales = "free") +
+  theme(legend.position = "none")
 
 S8_DA_phylum
 # Asterisks indicating significance were added manually to the PDF
@@ -251,10 +248,10 @@ S8_DA_phylum
 
 Figure 2 - Heat map of differentially abundant ASVS
 ```{r}
-# Import otu_table that is the subset of all ASVs that were significant differentially abundant between Day 0 and all other Days
-S8_DA_ASVs <- read.csv("S8_DA_ASVtable_Apr2022.csv", header = TRUE) # This is count based from DAtest code
-sigASV <- S8_DA_ASVs[,8]
-sigASV
+# Import otu_table that is the subset of all ASVs that were significantly differentially abundant between Day 0 and all other Days
+
+# Significant ASVs from DAtest file:
+S8_DA_ASVs <- c("ASV119", "ASV38", "ASV1", "ASV26", "ASV34", "ASV48", "ASV4", "ASV46", "ASV12", "ASV88", "ASV17", "ASV64")
 
 # Prep data ---------------------------------------------------------
 # Bring in taxonomy: Need an OTU ID in the taxonomy table to match to
@@ -263,17 +260,16 @@ tax_table(S8) <- cbind(tax_table(S8), ASV=taxa_names(S8))
 # Need to convert count data to abundance data
 s8RA <- transform_sample_counts(S8, function(x) x / sum(x))
 tax_table(s8RA) <- cbind(tax_table(s8RA), ASV=taxa_names(s8RA))
-View(tax_table(s8RA))
+#View(tax_table(s8RA))
 # Need to subset to only sigASVs
-select_sigASV <- subset_taxa(s8RA, ASV %in% sigASV)
-
+select_sigASV <- subset_taxa(s8RA, ASV %in% S8_DA_ASVs)
 # Set as factors
 select_sigASV@sam_data$Fecal.ID <- c("Aju 1", "Aju 1", "Aju 1","Aju 1","Aju 1","Aju 1", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 2", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 3", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 4", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 5", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 6", "Aju 7", "Aju 7", "Aju 7", "Aju 7", "Aju 8", "Aju 8", "Aju 8")
 select_sigASV@sam_data$Fecal_Series <- select_sigASV@sam_data$Fecal.ID
 sample_data(select_sigASV)$SampleDay <- factor(sample_data(select_sigASV)$SampleDay, levels = c("Day 0", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5"))
 
 # Group by Sample Day 
-ph.Fid <- plot_heatmap(select_sigASV, distance = "euclidean", sample.label = "Fecal_Series", taxa.label = "ASV", taxa.order = "Genus", high = "red", low = "yellow", na.value = "darkgrey", sample.order = "Fecal.ID") + theme(text = element_text(family = "Times New Roman"))
+ph.Fid <- plot_heatmap(select_sigASV, distance = "euclidean", sample.label = "Fecal.ID", taxa.label = "ASV", taxa.order = "Genus", high = "red", low = "yellow", na.value = "darkgrey", sample.order = "Fecal.ID") 
 # Facet Wrap by SampleDay
 s8htmp_ASV <- ph.Fid + facet_grid(~SampleDay, scales = "free_x") 
 
@@ -358,10 +354,10 @@ Faith's Phylogenetic Diversity (PD) ANOVA and Plots
 # Normality testing
 shapiro.test(dfS8$PD)
 leveneTest(PD ~ SampleDay, data = dfS8)
-leveneTest(PD ~ FecalSeries, data = dfS8) 
+leveneTest(PD ~ FecalSeries, data = dfS8)
 
 # PD ANOVA Model
-PDs8_aov <- aov(PD ~ FecalSeries + SampleDay, data = dfS8)
+PDs8_aov <- aov(PD ~ FecalSeries + SampleDay + MaxDailyCR, data = dfS8)
 summary(PDs8_aov)
 
 # PD Posthoc testing for Fecal ID
@@ -433,19 +429,30 @@ s8sr_day + s8sr_series + s8pd_day + s8pd_series + plot_layout(nrow = 2)
 
 ## Beta Diversity
 
-PERMANOVAs (including pairwise)
+#### PERMANOVAs (including pairwise) ----
 ```{r}
 # Bray Curtis PERMANOVA
 bray_S8 <- phyloseq::distance(S8, "bray")
-bray_adonis <- adonis2(bray_S8 ~ SampleDay + FecalSeries, data = dfS8)
+bray_adonis <- adonis2(bray_S8 ~ SampleDay + FecalSeries + MaxDailyCR, data = dfS8, by = "margin")
 bray_adonis
+
+bray_adonis5 <- adonis2(bray_S8 ~ SampleDay + FecalSeries, data = dfS8)
+bray_adonis5
+
+bray_adonis5 <- adonis2(bray_S8 ~ MaxDailyCR + FecalSeries, data = dfS8, by = "margin")
+bray_adonis5
+
+bray_adonis3 <- adonis2(bray_S8 ~ MaxDailyCR + SampleDay + FecalSeries , data = dfS8)
+
+bray_adonis4 <- adonis2(bray_S8 ~ MaxDailyCR + SampleDay + FecalSeries , data = dfS8, by = "margin")
+
 # Bray Curtis pairwise.adonis
-bray_pair <- pairwise.adonis2(bray_S8 ~ SampleDay + FecalSeries, data = dfS8)
+bray_pair <- pairwise.adonis2(bray_S8 ~ SampleDay + FecalSeries + MaxDailyCR, data = dfS8)
 head(bray_pair)
 
 # Jaccard PERMANOVA
 jacc_S8 <- phyloseq::distance(S8, "jaccard", binary = TRUE)
-jacc_adonis <- adonis2(jacc_S8 ~ SampleDay + FecalSeries, data = dfS8)
+jacc_adonis <- adonis2(jacc_S8 ~ SampleDay + FecalSeries + MaxDailyCR, data = dfS8)
 jacc_adonis
 # Jaccard pairwise.adonis
 jacc_pair <- pairwise.adonis2(jacc_S8 ~ SampleDay + FecalSeries, data = dfS8)
@@ -497,7 +504,7 @@ Allbetapadj <- data.frame(dfBCpadj, dfJCpadj, dfUUpadj)
 Allbetapadj
 ```
 
-## PermDISP
+#### PermDISP
 ```{r}
 # Set groups to SampleDay
 dfS8$SampleDay <- as.factor(dfS8$SampleDay)
@@ -548,7 +555,7 @@ U2df <- data.frame(name=names(S8_UUdisp$distances),
                    SampleDay=S8_UUdisp$group, 
                    distance=as.vector(S8_UUdisp$distances))
 # Labels based on pairwise permuted p-values
-U2df$label <- c(NA, "*","***", "***", "**","*", rep(NA,35))
+U2df$label <- c(NA, "*","**", "***", "**","*", rep(NA,35))
 # Denote where to place labels on plot
 U2df$yloc <- max(U2df$distance) + 0.05
 ```
@@ -669,12 +676,16 @@ UUbxp <- ggplot(U2df, aes(SampleDay, distance, fill = SampleDay)) +
 
 Figure 3 - Bray Curtis PCoA for Sample Day and Fecal ID
 ```{r}
-S8Bray2 + S8Bray3 + plot_layout(nrow = 1)
+Figure3 <- S8Bray2 + S8Bray3 + plot_layout(nrow = 1)
+
+#ggsave("/Users/morganmaly/OneDrive - Smithsonian Institution/Cheetah Poop Time Studies/Cheetah_GMB_PT_Manuscript/CGMB_SCBI.PT_Manuscript/HostAndMicrobiota/Reviewed_Figures/HaM_Figure3.pdf", Figure3, dpi = 350, width = 10)
 ```
 
 Figure S3 - Distance to centroids for all three beta measures
 ```{r}
-BCbxp + JCbxp + UUbxp + plot_layout(nrow = 3)
+FigS3 <- BCbxp + JCbxp + UUbxp + plot_layout(nrow = 3)
+
+ggsave("/Users/morganmaly/OneDrive - Smithsonian Institution/Cheetah Poop Time Studies/Cheetah_GMB_PT_Manuscript/CGMB_SCBI.PT_Manuscript/HostAndMicrobiota/Supplemental Tables and Figures/HaM_Supplemental Figure_3.pdf", FigS3, dpi = 350, width = 10, height = 8)
 ```
 
 Figure 4 - Microbiota network analysis
@@ -686,11 +697,13 @@ set.seed(711L)
 igB <- make_network(S8, dist.fun = "bray", max.dist = 0.7)
 
 # Make network plot
-plot_network(igB, S8, color = "SampleDay", line_weight = 0.5, label = "FecalSeries", shape = "FecalSeries") + 
+Network <- plot_network(igB, S8, color = "SampleDay", line_weight = 0.5, label = "FecalSeries", shape = "FecalSeries") + 
   scale_color_manual(values =  col6) + 
   scale_shape_manual(values = c(15,16,17,18,0,1,24,25)) + 
   theme(text = element_text(size = 15)) +
   labs(shape = "Fecal ID", color = "Sample Day")
+
+#ggsave("/Users/morganmaly/OneDrive - Smithsonian Institution/Cheetah Poop Time Studies/Cheetah_GMB_PT_Manuscript/CGMB_SCBI.PT_Manuscript/HostAndMicrobiota/Reviewed_Figures/HaM_Figure4.pdf", Network, dpi = 350, width = 8)
 
 ```
 
