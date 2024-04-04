@@ -11,8 +11,8 @@
 
 ## Code files
 
-1) Maly_2023_Processing_dada2_decontam.Rmd: for running dada2, decontam, calculating alpha diversity metrics, and making phylogenetic tree in QIIME2
+1) Maly_2024_Processing_dada2_decontam.Rmd: for running dada2, decontam, calculating alpha diversity metrics, and making phylogenetic tree in QIIME2
 
-2) Maly_2023_DAtesting_ASVandPhylum_Code.Rmd: Code for running DAtest and calculating differential abundance at the ASV and Phylum level
+2) Maly_2024_DAtesting_ASVandPhylum_Code.Rmd: Code for running DAtest and calculating differential abundance at the ASV and Phylum level
 
-3) Maly_2023_Final_Manuscript_Analyses_and_Figures.Rmd: Code for analyses and figures 
+3) Maly_et_al2024_Final_Manuscript_Analyses_and_Figures.Rmd: Code for analyses and figures 
