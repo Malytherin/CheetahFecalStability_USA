@@ -4,7 +4,7 @@ author: "M. Maly"
 date: "2023-04-30"
 output: html_document
 ---
-This is code for preprocessing demultiplexed 16S Illumina reads from the samples from "Comparing Stability of Fecal Microbiota by Time and Weather Conditions in a Carnivore, the Cheetah (Acinonyx jubatus)"
+This is code for preprocessing demultiplexed 16S Illumina reads from the samples from "Stability of fecal microbiota during degradation in ex situ cheetahs in the USA"
 
 1) DADA2 pipeline:
 Data merging, clean up, creating feature table, taxonomy table and sequence file for later analyses

@@ -4,7 +4,7 @@ author: "M. Maly"
 date: "2023-04-30"
 output: html_document
 ---
-This is code for Differential Abundance testing using DAtest for the samples from "Comparing Stability of Fecal Microbiota by Time and Weather Conditions in a Carnivore, the Cheetah (Acinonyx jubatus)"
+This is code for Differential Abundance testing using DAtest for the samples from "Stability of fecal microbiota during degradation in ex situ cheetahs in the USA"
 
 Load libraries
 ```{r}

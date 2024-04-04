@@ -5,10 +5,10 @@ date: "2024-04-04"
 output: html_document
 ---
 
-
 Cheetah Fecal Microbiota USA Final Analyses and Figures for Manuscript
 
-####Load libraries
+#### Load libraries
+
 ```{r, echo=TRUE, results='hide', message=FALSE}
 library(Biostrings)
 library(GGally)
@@ -38,7 +38,8 @@ library(rstatix)
 library(pairwiseAdonis)
 ```
 
-####Load color schemes
+#### Load color schemes
+
 ```{r}
 revfave6 <- c("#003f5c","#444e86","#955196","#dd5182","#ff6e54","#ffa600")
 fecalcols <- c("#f5bfbf", "#c093aa", "#e57a77", "#d373bb", "#665191", "#3497d5","#728fdc","#003f5c")
@@ -46,7 +47,8 @@ col6 <- c("#ffa600", "#3aba4d","#dd5182","#955196","#0f7ed9","#003f5c")
 
 ```
 
-#Data Loading - make phyloseq object and dataframe
+#### Data Loading - make phyloseq object and dataframe
+
 ```{r phyloseq, echo=FALSE}
 # read in feature table
 S8_feature_tab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
@@ -84,9 +86,10 @@ dfS8 <- as(sample_data(S8), "data.frame")
 
 ```
 
-#Data Analyses
+# Data Analyses
 
-####General features and info
+#### General features and info
+
 ```{r}
 sum(sample_sums(S8)) #984,381 Total # sequences
 max(sample_sums(S8)) #42284
@@ -129,7 +132,8 @@ ntaxa(subset_taxa(S8, Phylum == "Actinobacteria"))
 # Number of ASVs = 11
 ```
 
-####Figure S1 - Relative Abundance Across Days by Phyla
+#### Figure S1 - Relative Abundance Across Days by Phyla
+
 ```{r}
 # Get unique taxa
 get_taxa_unique(S8, "Phylum")
@@ -154,6 +158,7 @@ plot.rel.ab.s8p +
 ```
 
 ###Figure 2 - Box plots of significantly differential abundant Phyla
+
 ```{r}
 # Import otu_table that is the subset of all ASVs that were significant differentially abundant between Day 0 and all other Days
 S8_phylum <- tax_glom(S8, taxrank = 'Phylum')
@@ -200,6 +205,7 @@ S8_DA_phylum
 ```
 
 ###Figure 3 - Heat map of differentially abundant ASVS
+
 ```{r}
 # Import otu_table that is the subset of all ASVs that were significantly differentially abundant between Day 0 and all other Days
 
@@ -229,9 +235,10 @@ s8htmp_ASV <- ph.Fid + facet_grid(~SampleDay, scales = "free_x")
 s8htmp_ASV
 ```
 
-##Alpha Diversity
+## Alpha Diversity
 
-####Species Richness (SR) ANOVA and plots
+#### Species Richness (SR) ANOVA and plots
+
 ```{r}
 # Test for normality
 shapiro.test(dfS8$SR)
@@ -306,7 +313,8 @@ s8sr_series <- dfS8 %>%
 
 ```
 
-####Faith's Phylogenetic Diversity (PD) ANOVA and Plots
+#### Faith's Phylogenetic Diversity (PD) ANOVA and Plots
+
 ```{r}
 # Normality testing
 shapiro.test(dfS8$PD)
@@ -380,7 +388,8 @@ s8pd_series <- dfS8 %>%
 
 ```
 
-###Alpha Boxplots - Supplemental Figure 2
+### Alpha Boxplots - Supplemental Figure 2
+
 ```{r}
 s8sr_day + s8sr_series + s8pd_day + s8pd_series + plot_layout(nrow = 2)
 ```
@@ -388,6 +397,7 @@ s8sr_day + s8sr_series + s8pd_day + s8pd_series + plot_layout(nrow = 2)
 ## Beta Diversity
 
 #### PERMANOVAs (including pairwise)
+
 ```{r}
 # Bray Curtis PERMANOVA
 bray_S8 <- phyloseq::distance(S8, "bray")
@@ -456,6 +466,7 @@ Allbetapadj
 ```
 
 #### PermDISP
+
 ```{r}
 # Set groups to SampleDay
 dfS8$SampleDay <- as.factor(dfS8$SampleDay)
@@ -511,7 +522,8 @@ U2df$label <- c(NA, "*","**", "***", "**","*", rep(NA,35))
 U2df$yloc <- max(U2df$distance) + 0.05
 ```
 
-# Beta PCoAs and PermDisp Boxplots
+#### Beta PCoAs and PermDisp Boxplots
+
 ```{r}
 # PCoAs
 
@@ -625,17 +637,20 @@ UUbxp <- ggplot(U2df, aes(SampleDay, distance, fill = SampleDay)) +
   theme(plot.tag = element_text(size = 25))
 ```
 
-###Figure 4 - Bray Curtis PCoA for Sample Day and Fecal ID
+### Figure 4 - Bray Curtis PCoA for Sample Day and Fecal ID
+
 ```{r}
 S8Bray2 + S8Bray3 + plot_layout(nrow = 1)
 ```
 
-####Figure S3 - Distance to centroids for all three beta measures
+#### Figure S3 - Distance to centroids for all three beta measures
+
 ```{r}
 BCbxp + JCbxp + UUbxp + plot_layout(nrow = 3)
 ```
 
-###Figure 5 - Microbiota network analysis
+### Figure 5 - Microbiota network analysis
+
 ```{r}
 # For complete reproduciblity of the images produced, set the random number generator seed explicitly:
 set.seed(711L)
