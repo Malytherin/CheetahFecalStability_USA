@@ -49,7 +49,7 @@ col6 <- c("#ffa600", "#3aba4d","#dd5182","#955196","#0f7ed9","#003f5c")
 
 #### Data Loading - make phyloseq object and dataframe
 
-```{r phyloseq, echo=FALSE}
+```{r phyloseq, echo=TRUE, message=FALSE}
 # read in feature table
 S8_feature_tab <- read.csv("Aju_featuretable.csv", header = T, row.names = 1)
 # Make compatible for phyloseq format
